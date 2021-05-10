@@ -71,7 +71,7 @@ def start(update: Update, _: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     # Send message with text and appended InlineKeyboard
-    update.message.reply_text(message0, reply_markup=reply_markup)
+    update.message.reply_text(message0, parse_mode= 'Markdown',reply_markup=reply_markup)
     # Tell ConversationHandler that we're in state `FIRST` now
     return FIRST
 
@@ -95,7 +95,7 @@ def start_over(update: Update, _: CallbackContext) -> int:
     # Instead of sending a new message, edit the message that
     # originated the CallbackQuery. This gives the feeling of an
     # interactive menu.
-    query.edit_message_text(text=message0, reply_markup=reply_markup) 
+    query.edit_message_text(text=message0, parse_mode= 'Markdown',reply_markup=reply_markup) 
     return FIRST
 
 
@@ -114,8 +114,14 @@ def one(update: Update, _: CallbackContext) -> int:
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
+    # @TODO fetch profile data from database
+    # update profile message
+    name="JJ"
+    phone="12345678"
+    paymentmethod="PayNow"
+    profilemessage=" *Name*:"+ name +"\n *Phone Number*:" +phone +"\n *Payment Method*:" +paymentmethod
     query.edit_message_text(
-        text=message1, reply_markup=reply_markup
+        text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
     )
     return FIRST
 
@@ -137,7 +143,7 @@ def two(update: Update, _: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
-        text=message2, reply_markup=reply_markup
+        text=message2, parse_mode= 'Markdown', reply_markup=reply_markup
     )
   
     return FIRST
@@ -159,7 +165,7 @@ def three(update: Update, _: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
-        text="Third CallbackQueryHandler. Do want to start over?", reply_markup=reply_markup
+        text="Third CallbackQueryHandler. Do want to start over?",parse_mode= 'Markdown',reply_markup=reply_markup
     )
    
     return FIRST
@@ -177,7 +183,7 @@ def four(update: Update, _: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
-        text="Fourth CallbackQueryHandler, Choose a route", reply_markup=reply_markup
+        text="Fourth CallbackQueryHandler, Choose a route", parse_mode= 'Markdown',reply_markup=reply_markup
     )
     return FIRST
 
