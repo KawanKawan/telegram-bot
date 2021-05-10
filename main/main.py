@@ -2,10 +2,12 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Updater,
+    Filters,
     CommandHandler,
     CallbackQueryHandler,
     ConversationHandler,
     CallbackContext,
+    MessageHandler,
 )
 
 # Enable logging
@@ -16,7 +18,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST, SECOND = range(2)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,VIEW_HISTORY,END,TYPING_REPLY,BACK = range(8)
+
 # Callback data
 
 
@@ -27,7 +30,7 @@ ONE, TWO, THREE, FOUR = range(4)
 
 #1. Edit Profile
 message1="Your profile:\n"
-buttons_EditProfile=["Edit Name","Edit Phone Number","Edit Preferred Payment Menthods"]
+buttons_EditProfile=["Edit Name","Edit Phone Number","Edit Preferred Payment Menthods","<<Back"]
 ONE1,ONE2,ONE3=range(4,7)
 #2. Collect Money
 message2="Start collect money from your friends!"
@@ -37,8 +40,7 @@ message2_3="Type of money amount"
 message2_4="Enter the amount he/she need to pay"
 buttons_collect = [
     ['Title'], ['Number of people'],
-    ['Amount type'],
-    ['Done'],
+    ['Amount'], ['Done!'],
 ]
 NumOfPeople=["2","3","4","5","6","7","8","9","Others"]
 MoneyType=["Equal Amount","Different Amount"]
@@ -47,6 +49,8 @@ message3="Onging Payment"
 buttons_OngoingPayment=["1","2","3","4"]
 #4. View History
 message4="Your History"
+
+Back='Back'
 
 
 
@@ -76,29 +80,6 @@ def start(update: Update, _: CallbackContext) -> int:
     return FIRST
 
 
-def start_over(update: Update, _: CallbackContext) -> int:
-    """Prompt same text & keyboard as `start` does but not as new message"""
-    # Get CallbackQuery from Update
-    query = update.callback_query
-    query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton(MainMenu[0], callback_data=str(ONE)),
-            InlineKeyboardButton(MainMenu[1], callback_data=str(TWO)),
-        ],
-        [
-            InlineKeyboardButton(MainMenu[2], callback_data=str(THREE)),
-            InlineKeyboardButton(MainMenu[3], callback_data=str(FOUR))
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    # Instead of sending a new message, edit the message that
-    # originated the CallbackQuery. This gives the feeling of an
-    # interactive menu.
-    query.edit_message_text(text=message0, parse_mode= 'Markdown',reply_markup=reply_markup) 
-    return FIRST
-
-
 # My profile: 
 def one(update: Update, _: CallbackContext) -> int:
     """Show new choice of buttons"""
@@ -106,11 +87,11 @@ def one(update: Update, _: CallbackContext) -> int:
     query.answer()
     keyboard = [
         [
-            InlineKeyboardButton(buttons_EditProfile[0], callback_data=str(THREE)),
-            InlineKeyboardButton(buttons_EditProfile[1], callback_data=str(FOUR)),
+            InlineKeyboardButton(buttons_EditProfile[0], callback_data=str(ONE)),
+            InlineKeyboardButton(buttons_EditProfile[1], callback_data=str(TWO)),
         ],
         [
-            InlineKeyboardButton(buttons_EditProfile[2], callback_data=str(FOUR)),
+            InlineKeyboardButton(buttons_EditProfile[2], callback_data=str(THREE)),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -123,8 +104,28 @@ def one(update: Update, _: CallbackContext) -> int:
     query.edit_message_text(
         text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
     )
-    return FIRST
+    return EDIT_PROFILE
 
+def editName(update: Update, _: CallbackContext) -> int:
+    query = update.callback_query
+    # context.user_data['choice'] = text
+    query.message.reply_text(f'Your name? Yes, I would love to hear about that!')
+
+    return TYPING_REPLY
+
+def received_information(update: Update, context: CallbackContext) -> int:
+   
+   
+    keyboard = [
+        [
+            InlineKeyboardButton(Back, callback_data=str(ONE)),
+        ],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Send message with text and appended InlineKeyboard
+    update.message.reply_text("Success! About section updated. ", parse_mode= 'Markdown',reply_markup=reply_markup)
+    # Tell ConversationHandler that we're in state `FIRST` now 
+    return BACK
 
 def two(update: Update, _: CallbackContext) -> int:
 
@@ -134,11 +135,11 @@ def two(update: Update, _: CallbackContext) -> int:
     keyboard = [
         [
             InlineKeyboardButton(buttons_collect[0], callback_data=str(ONE)),
-            InlineKeyboardButton(buttons_collect[1], callback_data=str(THREE)),
+            InlineKeyboardButton(buttons_collect[1], callback_data=str(TWO)),
         ],
         [
             InlineKeyboardButton(buttons_collect[2], callback_data=str(THREE)),
-            InlineKeyboardButton(buttons_collect[3], callback_data=str(THREE)),
+            InlineKeyboardButton(buttons_collect[3], callback_data=str(FOUR)),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -146,8 +147,7 @@ def two(update: Update, _: CallbackContext) -> int:
         text=message2, parse_mode= 'Markdown', reply_markup=reply_markup
     )
   
-    return FIRST
-
+    return COLLECT_MONEY
 
 def three(update: Update, _: CallbackContext) -> int:
     """Show new choice of buttons"""
@@ -168,7 +168,7 @@ def three(update: Update, _: CallbackContext) -> int:
         text="Third CallbackQueryHandler. Do want to start over?",parse_mode= 'Markdown',reply_markup=reply_markup
     )
    
-    return FIRST
+    return ONGOING_PAYMENT
 
 
 def four(update: Update, _: CallbackContext) -> int:
@@ -185,7 +185,7 @@ def four(update: Update, _: CallbackContext) -> int:
     query.edit_message_text(
         text="Fourth CallbackQueryHandler, Choose a route", parse_mode= 'Markdown',reply_markup=reply_markup
     )
-    return FIRST
+    return VIEW_HISTORY
 
 
 def end(update: Update, _: CallbackContext) -> int:
@@ -204,7 +204,7 @@ def main() -> None:
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
 
-    # Setup conversation handler with the states FIRST and SECOND
+    # Setup conversation handler with the states FIRST and THIRD
     # Use the pattern parameter to pass CallbackQueries with specific
     # data pattern to the corresponding handlers.
     # ^ means "start of line/string"
@@ -212,6 +212,7 @@ def main() -> None:
     # So ^ABC$ will only allow 'ABC'
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
+       
         states={
             FIRST: [
                 CallbackQueryHandler(one, pattern='^' + str(ONE) + '$'),
@@ -219,10 +220,33 @@ def main() -> None:
                 CallbackQueryHandler(three, pattern='^' + str(THREE) + '$'),
                 CallbackQueryHandler(four, pattern='^' + str(FOUR) + '$'),
             ],
-            SECOND: [
-                CallbackQueryHandler(start_over, pattern='^' + str(ONE) + '$'),
-                CallbackQueryHandler(end, pattern='^' + str(TWO) + '$'),
+            EDIT_PROFILE:[
+                 CallbackQueryHandler(editName, pattern='^' + str(ONE) + '$')
+                #  CallbackQueryHandler(editPhone, pattern='^' + str(TWO) + '$')
+                #  CallbackQueryHandler(editPaymentMethod, pattern='^' + str(THREE) + '$')
+                #  CallbackQueryHandler(editProfile, pattern='^' + str(ONE) + '$')
             ],
+            TYPING_REPLY: [
+                MessageHandler(
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')),
+                    received_information,
+                )
+            ],
+            # COLLECT_MONEY: [
+
+            # ],
+            # ONGOING_PAYMENT:[
+
+            # ],
+            # VIEW_HISTORY: [
+
+            # ],
+            END: [
+                CallbackQueryHandler(end, pattern='^' + str(ONE) + '$')
+            ],
+            BACK:[
+                CallbackQueryHandler(one, pattern='^' + str(ONE) + '$')
+            ]
         },
         fallbacks=[CommandHandler('start', start)],
     )
