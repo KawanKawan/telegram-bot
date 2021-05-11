@@ -1,4 +1,7 @@
 import logging
+from db import fetch_profile, update_profile
+from utils import facts_to_str
+from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Updater,
@@ -30,7 +33,7 @@ ONE, TWO, THREE, FOUR = range(4)
 
 #1. Edit Profile
 message1="Your profile:\n"
-buttons_EditProfile=["Edit Name","Edit Phone Number","Edit Preferred Payment Menthods","<<Back"]
+buttons_EditProfile=["Edit Name","Edit Phone Number","Edit Preferred Payment Menthods","<<BACK"]
 ONE1,ONE2,ONE3=range(4,7)
 #2. Collect Money
 message2="Start collect money from your friends!"
@@ -50,9 +53,7 @@ buttons_OngoingPayment=["1","2","3","4"]
 #4. View History
 message4="Your History"
 
-Back='Back'
-
-
+BACK='BACK'
 
 def start(update: Update, _: CallbackContext) -> int:
     """Send message on `/start`."""
@@ -79,6 +80,28 @@ def start(update: Update, _: CallbackContext) -> int:
     # Tell ConversationHandler that we're in state `FIRST` now
     return FIRST
 
+def start_over(update: Update, _: CallbackContext) -> int:
+    """Prompt same text & keyboard as `start` does but not as new message"""
+    # Get CallbackQuery from Update
+    query = update.callback_query
+  
+    query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton(MainMenu[0], callback_data=str(ONE)),
+            InlineKeyboardButton(MainMenu[1], callback_data=str(TWO)),
+        ],
+        [
+            InlineKeyboardButton(MainMenu[2], callback_data=str(THREE)),
+            InlineKeyboardButton(MainMenu[3], callback_data=str(FOUR))
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Send message with text and appended InlineKeyboard
+    query.edit_message_text(message0, parse_mode= 'Markdown',reply_markup=reply_markup)
+    # Tell ConversationHandler that we're in state `FIRST` now
+    return FIRST
+
 
 # My profile: 
 def one(update: Update, _: CallbackContext) -> int:
@@ -87,44 +110,49 @@ def one(update: Update, _: CallbackContext) -> int:
     query.answer()
     keyboard = [
         [
-            InlineKeyboardButton(buttons_EditProfile[0], callback_data=str(ONE)),
-            InlineKeyboardButton(buttons_EditProfile[1], callback_data=str(TWO)),
+            InlineKeyboardButton(buttons_EditProfile[0], callback_data=str("Name")),
+            InlineKeyboardButton(buttons_EditProfile[1], callback_data=str("Phone")),
         ],
         [
-            InlineKeyboardButton(buttons_EditProfile[2], callback_data=str(THREE)),
+            InlineKeyboardButton(buttons_EditProfile[2], callback_data=str("Payment Method")),
+            InlineKeyboardButton(BACK, callback_data=str("start")),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    # @TODO fetch profile data from database
-    # update profile message
-    name="JJ"
-    phone="12345678"
-    paymentmethod="PayNow"
-    profilemessage=" *Name*:"+ name +"\n *Phone Number*:" +phone +"\n *Payment Method*:" +paymentmethod
+    profilemessage=facts_to_str(fetch_profile(123))
     query.edit_message_text(
         text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
     )
     return EDIT_PROFILE
 
-def editName(update: Update, _: CallbackContext) -> int:
+def edit_profile(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
-    # context.user_data['choice'] = text
-    query.message.reply_text(f'Your name? Yes, I would love to hear about that!')
-
+    _.user_data['choice'] = query.data
+    query.message.reply_text(f'Your {query.data} ? Yes, I would love to hear about that!')
     return TYPING_REPLY
 
-def received_information(update: Update, context: CallbackContext) -> int:
-   
-   
+def received_information(update: Update, _: CallbackContext) -> int:
+    user_data = _.user_data
+    text = update.message.text
+    category = user_data['choice']
+    user_data[category] = text
+    del user_data['choice']
+
+    # update db
+    update_profile({category:text})
+
     keyboard = [
         [
-            InlineKeyboardButton(Back, callback_data=str(ONE)),
+            InlineKeyboardButton(BACK, callback_data=str(ONE)),
         ],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     # Send message with text and appended InlineKeyboard
-    update.message.reply_text("Success! About section updated. ", parse_mode= 'Markdown',reply_markup=reply_markup)
-    # Tell ConversationHandler that we're in state `FIRST` now 
+    update.message.reply_text(
+    f"Success! {category} section updated."
+    f"{facts_to_str(fetch_profile(123))}",
+    parse_mode= 'Markdown',reply_markup=reply_markup)
+    # Tell ConversationHandler that we're in state `BACK` now 
     return BACK
 
 def two(update: Update, _: CallbackContext) -> int:
@@ -199,7 +227,7 @@ def end(update: Update, _: CallbackContext) -> int:
 
 def main() -> None:
     # Create the Updater and pass it your bot's token.
-    updater = Updater("1812536998:AAFUxezkWLEpoB2-OEWibE1ozbrO5VF5tlA")
+    updater = Updater("1812536998:AAFUxezkWLEpoB2-OEWibE1ozbrO5VF5tlA", use_context=True)
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
@@ -221,10 +249,10 @@ def main() -> None:
                 CallbackQueryHandler(four, pattern='^' + str(FOUR) + '$'),
             ],
             EDIT_PROFILE:[
-                 CallbackQueryHandler(editName, pattern='^' + str(ONE) + '$')
-                #  CallbackQueryHandler(editPhone, pattern='^' + str(TWO) + '$')
-                #  CallbackQueryHandler(editPaymentMethod, pattern='^' + str(THREE) + '$')
-                #  CallbackQueryHandler(editProfile, pattern='^' + str(ONE) + '$')
+                 CallbackQueryHandler(edit_profile, pattern='^' + str("Name") + '$'),
+                 CallbackQueryHandler(edit_profile, pattern='^' + str("Phone") + '$'),
+                 CallbackQueryHandler(edit_profile, pattern='^' + str("Payment Method") + '$'),
+                 CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
             ],
             TYPING_REPLY: [
                 MessageHandler(
