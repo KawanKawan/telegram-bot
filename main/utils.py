@@ -1,3 +1,5 @@
+from typing import Dict
+
 def facts_to_str(user_data: Dict[str, str]) -> str:
     facts = list()
 
