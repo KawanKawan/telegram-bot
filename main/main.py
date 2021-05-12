@@ -1,8 +1,9 @@
 import logging
-from db import fetch_profile, update_profile
+from db import fetch_profile, update_profile, fetch_payment, add_payment
 from utils import facts_to_str
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.utils import helpers
 from telegram.ext import (
     Updater,
     Filters,
@@ -21,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,VIEW_HISTORY,END,TYPING_REPLY,BACK = range(8)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,VIEW_HISTORY,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY = range(13)
 
 # Callback data
 
@@ -42,18 +43,20 @@ message2_2="How many people?"
 message2_3="Type of money amount"
 message2_4="Enter the amount he/she need to pay"
 buttons_collect = [
-    ['Title'], ['Number of people'],
-    ['Amount'], ['Done!'],
+    'Title', 'Number of people',
+    'Amount', 'Done!',
 ]
 NumOfPeople=["2","3","4","5","6","7","8","9","Others"]
 MoneyType=["Equal Amount","Different Amount"]
+LINK_CALLBACKDATA = "link-callback-data"
+CHECK_THIS_OUT = "check-this-out"
 #3. Ongoing Payment
 message3="Onging Payment"
 buttons_OngoingPayment=["1","2","3","4"]
 #4. View History
 message4="Your History"
 
-BACK='BACK'
+BACK='<<BACK'
 
 def start(update: Update, _: CallbackContext) -> int:
     """Send message on `/start`."""
@@ -127,12 +130,13 @@ def one(update: Update, _: CallbackContext) -> int:
 
 def edit_profile(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
-    _.user_data['choice'] = query.data
+    _.user_data['profile']={}
+    _.user_data['profile']['choice'] = query.data
     query.message.reply_text(f'Your {query.data} ? Yes, I would love to hear about that!')
     return TYPING_REPLY
 
-def received_information(update: Update, _: CallbackContext) -> int:
-    user_data = _.user_data
+def received_profile_information(update: Update, _: CallbackContext) -> int:
+    user_data = _.user_data['profile']
     text = update.message.text
     category = user_data['choice']
     user_data[category] = text
@@ -152,8 +156,9 @@ def received_information(update: Update, _: CallbackContext) -> int:
     f"Success! {category} section updated."
     f"{facts_to_str(fetch_profile(123))}",
     parse_mode= 'Markdown',reply_markup=reply_markup)
+
     # Tell ConversationHandler that we're in state `BACK` now 
-    return BACK
+    return BACK1
 
 def two(update: Update, _: CallbackContext) -> int:
 
@@ -162,20 +167,62 @@ def two(update: Update, _: CallbackContext) -> int:
     query.answer()
     keyboard = [
         [
-            InlineKeyboardButton(buttons_collect[0], callback_data=str(ONE)),
-            InlineKeyboardButton(buttons_collect[1], callback_data=str(TWO)),
+            InlineKeyboardButton(buttons_collect[0], callback_data=str("Title")),
+            InlineKeyboardButton(buttons_collect[1], callback_data=str("Numberofpeople")),
         ],
         [
-            InlineKeyboardButton(buttons_collect[2], callback_data=str(THREE)),
-            InlineKeyboardButton(buttons_collect[3], callback_data=str(FOUR)),
+            InlineKeyboardButton(buttons_collect[2], callback_data=str("Amount")),
+            InlineKeyboardButton(buttons_collect[3], callback_data=str(LINK_CALLBACKDATA)),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
-        text=message2, parse_mode= 'Markdown', reply_markup=reply_markup
+        text=message2, parse_mode='Markdown', reply_markup=reply_markup
     )
   
     return COLLECT_MONEY
+
+def share_link(update: Update, context: CallbackContext)-> None:
+    """Reached through the USING_ENTITIES payload"""
+    query = update.callback_query
+    query.answer()
+    bot = context.bot
+    url = helpers.create_deep_linked_url(bot.username, CHECK_THIS_OUT, group=True)
+    text = f"Share the payment information to your group: [▶️ CLICK HERE]({url})."
+    query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True)
+
+def edit_title(update: Update, _: CallbackContext) -> int:
+    query = update.callback_query
+    # create payment dict in user_data
+    _.user_data['payment']={}
+    _.user_data['payment']['choice'] = query.data
+    query.message.reply_text(f'Your {query.data} ? Yes, I would love to hear about that!')
+    return EDIT_TITLE_REPLY
+
+def received_payment_title(update: Update, _: CallbackContext) -> int:
+    user_data = _.user_data['payment']
+    text = update.message.text
+    category = user_data['choice']
+    user_data[category] = text
+    del user_data['choice']
+
+    # update userdata and later should be save in db after user DONE
+    user_data.update({category:text})
+
+    keyboard = [
+        [
+            InlineKeyboardButton(BACK, callback_data=str(ONE)),
+        ],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Send message with text and appended InlineKeyboard
+    update.message.reply_text(
+    f"Success! {category} section updated."
+    f"{facts_to_str(user_data)}",
+    parse_mode= 'Markdown',reply_markup=reply_markup)
+
+    # Tell ConversationHandler that we're in state `BACK` now 
+    return BACK2
 
 def three(update: Update, _: CallbackContext) -> int:
     """Show new choice of buttons"""
@@ -257,12 +304,21 @@ def main() -> None:
             TYPING_REPLY: [
                 MessageHandler(
                     Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-                    received_information,
+                    received_profile_information,
                 )
             ],
-            # COLLECT_MONEY: [
-
-            # ],
+            COLLECT_MONEY: [
+                CallbackQueryHandler(edit_title, pattern='^' + str("Title") + '$'),
+                CallbackQueryHandler(edit_title, pattern='^' + str("Numberofpeople") + '$'),
+                CallbackQueryHandler(edit_title, pattern='^' + str("Amount") + '$'),
+                CallbackQueryHandler(share_link, pattern='^' + str(LINK_CALLBACKDATA) + '$'),
+            ],
+            EDIT_TITLE_REPLY:[
+                MessageHandler(
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')),
+                    received_payment_title,
+                )
+            ],
             # ONGOING_PAYMENT:[
 
             # ],
@@ -272,8 +328,11 @@ def main() -> None:
             END: [
                 CallbackQueryHandler(end, pattern='^' + str(ONE) + '$')
             ],
-            BACK:[
+            BACK1:[
                 CallbackQueryHandler(one, pattern='^' + str(ONE) + '$')
+            ],
+            BACK2:[
+                CallbackQueryHandler(two, pattern='^' + str(ONE) + '$')
             ]
         },
         fallbacks=[CommandHandler('start', start)],
