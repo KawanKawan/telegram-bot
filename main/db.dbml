@@ -1,0 +1,15 @@
+Project TelegramBot {
+  database_type: 'Firestore'
+  Note: 'DB'
+}
+
+Table userProfile {
+  ID int [pk, not null]
+  phone int [not null]
+  paymentMethod varchar [not null, default:PayNow]
+}
+
+Table subscription {
+  ID int [pk, not null, ref: - plan.id] //plan.id is plan ID in main DB
+  priceID varchar [not null]
+}
