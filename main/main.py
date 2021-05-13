@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,VIEW_HISTORY,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY = range(13)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY = range(13)
 
 # Callback data
 
@@ -52,7 +52,7 @@ LINK_CALLBACKDATA = "link-callback-data"
 CHECK_THIS_OUT = "check-this-out"
 #3. Ongoing Payment
 message3="Onging Payment"
-buttons_OngoingPayment=["1","2","3","4"]
+buttons_amount_type=["equal amount","different amount"]
 #4. View History
 message4="Your History"
 
@@ -62,11 +62,14 @@ def start(update: Update, _: CallbackContext) -> int:
     """Send message on `/start`."""
     # Get user that sent /start and log his name
     user = update.message.from_user  
+    _.user_data['profile']={}
+    _.user_data['payment']={}
     logger.info("User %s started the conversation.", user.first_name)
     # Build InlineKeyboard where each button has a displayed text
     # and a string as callback_data
     # The keyboard is a list of button rows, where each row is in turn
     # a list (hence `[[...]]`).
+
     keyboard = [
         [
             InlineKeyboardButton(MainMenu[0], callback_data=str(ONE)),
@@ -79,7 +82,11 @@ def start(update: Update, _: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     # Send message with text and appended InlineKeyboard
-    update.message.reply_text(message0, parse_mode= 'Markdown',reply_markup=reply_markup)
+    # if deeplink have 
+    if(_.args):
+        update.message.reply_text(f"yes! bro, you got it {_.args[0]}", parse_mode= 'Markdown',reply_markup=reply_markup)
+    else:
+        update.message.reply_text(message0, parse_mode= 'Markdown',reply_markup=reply_markup)
     # Tell ConversationHandler that we're in state `FIRST` now
     return FIRST
 
@@ -106,7 +113,7 @@ def start_over(update: Update, _: CallbackContext) -> int:
     return FIRST
 
 
-# My profile: 
+# 1.Edit Profile  
 def one(update: Update, _: CallbackContext) -> int:
     """Show new choice of buttons"""
     query = update.callback_query
@@ -130,7 +137,6 @@ def one(update: Update, _: CallbackContext) -> int:
 
 def edit_profile(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
-    _.user_data['profile']={}
     _.user_data['profile']['choice'] = query.data
     query.message.reply_text(f'Your {query.data} ? Yes, I would love to hear about that!')
     return TYPING_REPLY
@@ -160,20 +166,23 @@ def received_profile_information(update: Update, _: CallbackContext) -> int:
     # Tell ConversationHandler that we're in state `BACK` now 
     return BACK1
 
+# 2.Collect Money
 def two(update: Update, _: CallbackContext) -> int:
 
     """Show new choice of buttons"""
     query = update.callback_query
     query.answer()
+    
     keyboard = [
         [
             InlineKeyboardButton(buttons_collect[0], callback_data=str("Title")),
-            InlineKeyboardButton(buttons_collect[1], callback_data=str("Numberofpeople")),
+            InlineKeyboardButton(buttons_collect[1], callback_data=str("Number of people")),
         ],
         [
             InlineKeyboardButton(buttons_collect[2], callback_data=str("Amount")),
             InlineKeyboardButton(buttons_collect[3], callback_data=str(LINK_CALLBACKDATA)),
-        ]
+        ],
+        [   InlineKeyboardButton(BACK, callback_data=str("start"))]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
@@ -183,7 +192,6 @@ def two(update: Update, _: CallbackContext) -> int:
     return COLLECT_MONEY
 
 def share_link(update: Update, context: CallbackContext)-> None:
-    """Reached through the USING_ENTITIES payload"""
     query = update.callback_query
     query.answer()
     bot = context.bot
@@ -194,10 +202,37 @@ def share_link(update: Update, context: CallbackContext)-> None:
 def edit_title(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
     # create payment dict in user_data
-    _.user_data['payment']={}
-    _.user_data['payment']['choice'] = query.data
-    query.message.reply_text(f'Your {query.data} ? Yes, I would love to hear about that!')
-    return EDIT_TITLE_REPLY
+    if (query.data=='Amount' and (not _.user_data['payment'].get('Number of people'))):
+        query.message.reply_text(f'Please enter number of people first')
+        return COLLECT_MONEY
+    elif(query.data=='Amount' and _.user_data['payment'].get('Number of people')):
+        """Show new choice of buttons"""
+        query = update.callback_query
+        query.answer()
+    
+        keyboard = [
+            [
+                InlineKeyboardButton(buttons_amount_type[0], callback_data=str("equal")),
+                InlineKeyboardButton(buttons_amount_type[1], callback_data=str("different")),
+            ],    
+            [   InlineKeyboardButton(BACK, callback_data=str(ONE))]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            text="Please choose the amount type", parse_mode='Markdown', reply_markup=reply_markup
+        )
+  
+        return AMOUNT_TYPE
+    else:
+        _.user_data['payment']['choice'] = query.data
+        query.message.reply_text(f'{query.data} ? Yes, I would love to hear about that!')
+        return EDIT_TITLE_REPLY
+
+# def choose_amount_type(update: Update, _: CallbackContext) -> int:
+    
+
+def handle_amount_type(update: Update, _: CallbackContext) -> int:
+    return 1
 
 def received_payment_title(update: Update, _: CallbackContext) -> int:
     user_data = _.user_data['payment']
@@ -211,8 +246,14 @@ def received_payment_title(update: Update, _: CallbackContext) -> int:
 
     keyboard = [
         [
-            InlineKeyboardButton(BACK, callback_data=str(ONE)),
+            InlineKeyboardButton(buttons_collect[0], callback_data=str("Title")),
+            InlineKeyboardButton(buttons_collect[1], callback_data=str("Number of people")),
         ],
+        [
+            InlineKeyboardButton(buttons_collect[2], callback_data=str("Amount")),
+            InlineKeyboardButton(buttons_collect[3], callback_data=str(LINK_CALLBACKDATA)),
+        ],
+        [   InlineKeyboardButton(BACK, callback_data=str("start"))]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     # Send message with text and appended InlineKeyboard
@@ -222,45 +263,45 @@ def received_payment_title(update: Update, _: CallbackContext) -> int:
     parse_mode= 'Markdown',reply_markup=reply_markup)
 
     # Tell ConversationHandler that we're in state `BACK` now 
-    return BACK2
+    return COLLECT_MONEY
 
+# 3.Ongoing Payment
 def three(update: Update, _: CallbackContext) -> int:
     """Show new choice of buttons"""
     query = update.callback_query
     query.answer()
+
+    # fetch ongoing payment from database
+    payment=["1","2","3","4"]
     keyboard = [
         [
-            InlineKeyboardButton(buttons_OngoingPayment[0], callback_data=str(ONE)),
-            InlineKeyboardButton(buttons_OngoingPayment[1], callback_data=str(TWO)),
+            InlineKeyboardButton(payment[0], callback_data=str(ONE)),
+            InlineKeyboardButton(payment[1], callback_data=str(TWO)),
         ],
         [
-            InlineKeyboardButton(buttons_OngoingPayment[2], callback_data=str(ONE)),
-            InlineKeyboardButton(buttons_OngoingPayment[3], callback_data=str(TWO)),
-        ]
+            InlineKeyboardButton(payment[2], callback_data=str(THREE)),
+            InlineKeyboardButton(payment[3], callback_data=str(FOUR)),
+        ],
+        [   InlineKeyboardButton(BACK, callback_data=str("start"))]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
-        text="Third CallbackQueryHandler. Do want to start over?",parse_mode= 'Markdown',reply_markup=reply_markup
+        text="Here are your ongoing payment",parse_mode= 'Markdown',reply_markup=reply_markup
     )
    
     return ONGOING_PAYMENT
 
+def display_payment(update: Update, _: CallbackContext) -> int:
+    #fetch 
+    return null
 
-def four(update: Update, _: CallbackContext) -> int:
-    """Show new choice of buttons"""
+# 4. View History
+def four(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton("2", callback_data=str(TWO)),
-            InlineKeyboardButton("3", callback_data=str(THREE)),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(
-        text="Fourth CallbackQueryHandler, Choose a route", parse_mode= 'Markdown',reply_markup=reply_markup
-    )
-    return VIEW_HISTORY
+    url = "www.google.com"
+    text = f"Visit our website to find out your payment summary: [▶️ CLICK HERE]({url})."
+    query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True)
 
 
 def end(update: Update, _: CallbackContext) -> int:
@@ -309,9 +350,10 @@ def main() -> None:
             ],
             COLLECT_MONEY: [
                 CallbackQueryHandler(edit_title, pattern='^' + str("Title") + '$'),
-                CallbackQueryHandler(edit_title, pattern='^' + str("Numberofpeople") + '$'),
+                CallbackQueryHandler(edit_title, pattern='^' + str("Number of people") + '$'),
                 CallbackQueryHandler(edit_title, pattern='^' + str("Amount") + '$'),
                 CallbackQueryHandler(share_link, pattern='^' + str(LINK_CALLBACKDATA) + '$'),
+                CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
             ],
             EDIT_TITLE_REPLY:[
                 MessageHandler(
@@ -319,12 +361,15 @@ def main() -> None:
                     received_payment_title,
                 )
             ],
-            # ONGOING_PAYMENT:[
-
-            # ],
-            # VIEW_HISTORY: [
-
-            # ],
+            AMOUNT_TYPE:[
+                CallbackQueryHandler(handle_amount_type, pattern='^' + str("equal") + '$'),
+                CallbackQueryHandler(handle_amount_type, pattern='^' + str("different") + '$'),
+                CallbackQueryHandler(two, pattern='^' + str(ONE) + '$'),
+            ],
+            ONGOING_PAYMENT:[
+                CallbackQueryHandler(display_payment, pattern='^' + str(ONE) + '$'),
+                CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
+            ],
             END: [
                 CallbackQueryHandler(end, pattern='^' + str(ONE) + '$')
             ],
