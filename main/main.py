@@ -1,5 +1,5 @@
 import logging
-from db import fetch_profile, update_profile, fetch_payment, add_payment, test
+from db import fetch_profile, update_profile, fetch_payment, add_payment
 from utils import facts_to_str
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -71,6 +71,10 @@ def start(update: Update, _: CallbackContext) -> int:
     _.user_data['profile']={}
     _.user_data['payment']={}
 
+    #user id in telegram 
+    # https://python-telegram-bot.readthedocs.io/en/stable/telegram.user.html#telegram.User
+    user_id=update.message.from_user.id
+
     # Build InlineKeyboard where each button has a displayed text
     # and a string as callback_data
     # The keyboard is a list of button rows, where each row is in turn
@@ -137,7 +141,7 @@ def one(update: Update, _: CallbackContext) -> int:
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    profilemessage=facts_to_str(fetch_profile(123))
+    profilemessage=facts_to_str(fetch_profile(1078844444))
     query.edit_message_text(
         text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
     )
@@ -158,7 +162,8 @@ def received_profile_information(update: Update, _: CallbackContext) -> int:
     del user_data['choice']
 
     # update db
-    update_profile({category:text})
+    userid=update.message.from_user.id
+    update_profile(userid,category,text)
 
     keyboard = [
         [
