@@ -3,7 +3,7 @@ Project TelegramBot {
   Note: ''
 }
 
-Table userProfile {
+Table users {
   id int [pk, not null]
   phone int [not null]
   paymentMethod varchar [not null, default:PayNow]
