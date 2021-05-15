@@ -5,22 +5,25 @@ Project TelegramBot {
 
 Table users {
   id int [pk, not null]
-  phone int [not null]
-  paymentMethod varchar [not null, default:PayNow]
+  Name varchar[not null]
+  Phone int [not null]
+  Payment Method varchar [not null, default:PayNow]
 }
 
 Table payment {
-  id varchar [..] // ZK
-  request_from varchar [] // JJ
-  amount int [] // $10...
+  id int [not null] // ZK
+  request_from int [not null] // JJ
+  amount int [not null] // $10...
   completed bool [not null, default:false]
-  eventid 
+  eventid varchar [not null]
+  payload varchar [not null]
 }
 
 Table event{
   id varchar [pk, not null]
   startdate date [not null]
   title varchar [not null]
+  completed bool [not null, default:false]
 }
 
 Ref: payment.user_id > userProfile.user_id  
