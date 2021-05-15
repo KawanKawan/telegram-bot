@@ -1,5 +1,6 @@
 from typing import Dict
 import logging
+import uuid
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
@@ -17,9 +18,10 @@ PAYMENT_METHOD=["PAYNOW","PAYPAL","PAYLAH","WECHAT"]
 def add_user(userid,name,phone,payment_method):
     user_ref = db.collection(u'users').document(str(userid))
     user_ref.set({
-        u'name': name,
-        u'phone': phone,
-        u'payment_method': PAYMENT_METHOD[payment_method]
+        u'id': userid,
+        u'Name': name,
+        u'Phone': phone,
+        u'Payment Method': PAYMENT_METHOD[payment_method]
     })
 
 def fetch_profile(userid):
@@ -39,61 +41,51 @@ def update_profile(userid,category,text):
         category:text,
     })
 
+def add_payment(userid,request_from,amount,eventid,payload):
+    payment_ref = db.collection(u'payment').document(str(uuid.uuid1()))
+    payment_ref.set({
+        u'id':userid,
+        u'request_from': request_from,
+        u'amount': amount,
+        u'eventid': eventid,
+        u'completed':False,
+        u'payload':payload
+    })
 
+def update_payment_amount(userid,request_from,eventid,amount):
+    payment_ref = db.collection(u'payment')
+    docs = db.collection(u'payment').where(u'id', u'==', userid).where(u'request_from',u'==',request_from).where(u'eventid',u'==',eventid).get()
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            logger.info(f'Document data: {doc.to_dict()}')       
+            payment_ref.document(doc.id).update({u'amount':amount})
+                            
 
-userID="0123" #profile id start with 0
-name="JJ"
-phone="12345678"
-paymentmethod="PayNow"
-
-profile = {
-        "userID":userID,
-        "Name": name,
-        "Phone": phone,
-        "Payment Method": paymentmethod
-    }
-
-userID2="0124" #profile id start with 0
-name2="KK"
-phone2="12345678"
-paymentmethod2="PayNow"
-
-profile2 = {
-        "userID":userID2,
-        "Name": name2,
-        "Phone": phone2,
-        "Payment Method": paymentmethod2
-    }
-
-ID="1123" #payment id start with 1
-userID="0123"
-title="movie night"
-numOfPeople=5
-amount={
-    "JJ":10,
-    "KongWei":11,
-    "Jessica":12,
-    "ZiKang":13
-}
-
-payment={
-    "ID":ID,
-    "userID":userID,
-    "title":title,
-    "numOfPeople":numOfPeople,
-    "amount":amount
-}
-
-
-
-def add_payment(payment):
-    payment.update(payment)
+def update_payment_status(userid,request_from,eventid,completed):
+    payment_ref = db.collection(u'payment')
+    docs = db.collection(u'payment').where(u'id', u'==', userid).where(u'request_from',u'==',request_from).where(u'eventid',u'==',eventid).get()
+    # print(len(list(docs)))
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            logger.info(f'Document data: {doc.to_dict()}')       
+            payment_ref.document(doc.id).update({u'completed':completed})            
+            
+                                                                     
     
-def fetch_payment(userID):
-    #fetch all payment from db
-    return payment
+def fetch_payment(userid,request_from,eventid):
+    docs = db.collection(u'payment').where(u'id', u'==', userid).where(u'request_from',u'==',request_from).where(u'eventid',u'==',eventid).stream()
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            logger.info(f'Document data: {doc.to_dict()}')       
+            return doc.to_dict()
 
-#def update_payment():
+
        
 
 
