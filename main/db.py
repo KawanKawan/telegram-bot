@@ -1,5 +1,6 @@
 from typing import Dict
 import logging
+import datetime
 import uuid
 import firebase_admin
 from firebase_admin import credentials
@@ -36,7 +37,6 @@ def fetch_profile(userid):
 def update_profile(userid,category,text):
     user_ref = db.collection(u'users').document(str(userid))
 
-    # Set the capital field
     user_ref.update({
         category:text,
     })
@@ -85,6 +85,21 @@ def fetch_payment(userid,request_from,eventid):
             logger.info(f'Document data: {doc.to_dict()}')       
             return doc.to_dict()
 
+def add_event(userid,title,completed):
+    event_ref = db.collection(u'event').document(str(uuid.uuid1()))
+    event_ref.set({
+        u'userid':userid,
+        u'startdate': datetime.date(datetime.now()),
+        u'title': title,
+        u'completed':completed,
+    })
+
+def update_event_status(doc_id):
+    event_ref = db.collection(u'event').document(doc_id)
+
+    event_ref.update({
+        u'completed':True,
+    })
 
        
 
