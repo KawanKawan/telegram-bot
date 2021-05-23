@@ -113,6 +113,8 @@ def update_event_status(doc_id):
         u'completed':True,
     })
 
+
+# TODO: fetch all ongoing payment
        
 
 

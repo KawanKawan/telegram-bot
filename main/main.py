@@ -95,7 +95,7 @@ def start(update: Update, _: CallbackContext) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # TODO: args in deeplink
+    # TODO: if got args in deeplink, need show different interface(ongoing payment details)
     # if deeplink have args, it considers as others click the link
     # each link should a unique payload to search the specific payment in db
     if(_.args):
@@ -270,6 +270,7 @@ def edit_title(update: Update, _: CallbackContext) -> int:
     
 
 def handle_amount_type(update: Update, _: CallbackContext) -> int:
+    # TODO: handle amount type (equal amount and differnet amount)
     return 1
 
 def received_payment_info(update: Update, _: CallbackContext) -> int:
@@ -332,7 +333,7 @@ def three(update: Update, _: CallbackContext) -> int:
     return ONGOING_PAYMENT
 
 def display_payment(update: Update, _: CallbackContext) -> int:
-    #fetch 
+    # TODO: new interface after click on the specific ongoing payment (is it need to pay to someone or collect from someone?)
     return null
 
 # 4. View History
