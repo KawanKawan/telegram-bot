@@ -41,16 +41,26 @@ def update_profile(userid,category,text):
         category:text,
     })
 
-def add_payment(userid,request_from,amount,eventid,payload):
-    payment_ref = db.collection(u'payment').document(str(uuid.uuid1()))
+def add_payment(userid,amount,eventid,payload):
+    payment_ref = db.collection(u'payment').document(payload)
     payment_ref.set({
         u'id':userid,
-        u'request_from': request_from,
+        #u'request_from': request_from,
         u'amount': amount,
         u'eventid': eventid,
         u'completed':False,
         u'payload':payload
     })
+
+
+# after the payee click the link, the request_from will be update to this payment
+def complete_payment(payload,request_from):
+    payment_ref = db.collection(u'payment').document(payload)
+    payment_ref.update({
+        u'request_from': request_from,
+    })
+
+
 
 def update_payment_amount(userid,request_from,eventid,amount):
     payment_ref = db.collection(u'payment')
@@ -85,14 +95,16 @@ def fetch_payment(userid,request_from,eventid):
             logger.info(f'Document data: {doc.to_dict()}')       
             return doc.to_dict()
 
-def add_event(userid,title,completed):
-    event_ref = db.collection(u'event').document(str(uuid.uuid1()))
+def add_event(userid,title):
+    eventid=str(uuid.uuid1())
+    event_ref = db.collection(u'event').document(eventid)
     event_ref.set({
         u'userid':userid,
-        u'startdate': datetime.date(datetime.now()),
+        u'startdate': datetime.datetime.now(),
         u'title': title,
-        u'completed':completed,
     })
+
+    return eventid
 
 def update_event_status(doc_id):
     event_ref = db.collection(u'event').document(doc_id)

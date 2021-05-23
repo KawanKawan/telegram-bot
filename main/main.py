@@ -1,6 +1,6 @@
 import logging
-from db import fetch_profile, update_profile, fetch_payment, add_payment
-from utils import facts_to_str
+from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment
+from utils import facts_to_str,generate_token
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.utils import helpers
@@ -20,7 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 
-# @TODO: error handler
+# TODO: error handler
 logger = logging.getLogger(__name__)
 
 # Stages
@@ -67,13 +67,15 @@ def start(update: Update, _: CallbackContext) -> int:
 
     logger.info("User %s started the conversation.", user.first_name)
     
+    
     # initialize user_data 
     _.user_data['profile']={}
     _.user_data['payment']={}
 
     #user id in telegram 
     # https://python-telegram-bot.readthedocs.io/en/stable/telegram.user.html#telegram.User
-    user_id=update.message.from_user.id
+    _.user_data['user_id']=update.message.from_user.id
+    
 
     # Build InlineKeyboard where each button has a displayed text
     # and a string as callback_data
@@ -92,11 +94,12 @@ def start(update: Update, _: CallbackContext) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # @TODO: args in deeplink
+    # TODO: args in deeplink
     # if deeplink have args, it considers as others click the link
     # each link should a unique payload to search the specific payment in db
     if(_.args):
         update.message.reply_text(f"yes! bro, you got it {_.args[0]}", parse_mode= 'Markdown',reply_markup=reply_markup)
+        complete_payment(_.args[0],update.message.from_user.id)
     else:
         update.message.reply_text(message0, parse_mode= 'Markdown',reply_markup=reply_markup)
     # Tell ConversationHandler that we're in state `FIRST` now
@@ -175,7 +178,7 @@ def received_profile_information(update: Update, _: CallbackContext) -> int:
     # Send message with text and appended InlineKeyboard
     update.message.reply_text(
     f"Success! {category} section updated."
-    f"{facts_to_str(fetch_profile(123))}",
+    f"{facts_to_str(fetch_profile(1078844444))}",
     parse_mode= 'Markdown',reply_markup=reply_markup)
 
     # Tell ConversationHandler that we're in state `BACK1` now 
@@ -211,10 +214,25 @@ def share_link(update: Update, context: CallbackContext)-> None:
     query.answer()
     bot = context.bot
 
+    user_data = context.user_data['payment']
+    numOfPersons=int(user_data['Number of people'])
+
+    payloads=[]
+    i=0
+    text = f"{facts_to_str(user_data)}"
+    while i<numOfPersons:
+        payloads.append(generate_token())
+        # TODO: link can only share to groups not individuals
+        url = helpers.create_deep_linked_url(bot.username, str(payloads[i]))
+        event_id=add_event(context.user_data['user_id'],user_data['Title'])
+        # TODO: amount need to be replace by specific amount
+        add_payment(context.user_data['user_id'],10,event_id,str(payloads[i]))
+        text+=(f"Share the payment information to your friends: [▶️ CLICK HERE]({url}). \n")
+        i+=1
+
     # create_deep_linked_url(bot_username, payload=None, group=False) 
     # the link will start the bot with /start, cant start with other command
-    url = helpers.create_deep_linked_url(bot.username, CHECK_THIS_OUT, group=True)
-    text = f"Share the payment information to your group: [▶️ CLICK HERE]({url})."
+    # url = helpers.create_deep_linked_url(bot.username, CHECK_THIS_OUT, group=True)
     query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True)
 
 def edit_title(update: Update, _: CallbackContext) -> int:
@@ -292,7 +310,7 @@ def three(update: Update, _: CallbackContext) -> int:
     query.answer()
 
     # fetch ongoing payment from database
-    # @TODO: replace with real data from db
+    # TODO: replace with real data from db
     payment=["1","2","3","4"]
     keyboard = [
         [
@@ -320,7 +338,7 @@ def display_payment(update: Update, _: CallbackContext) -> int:
 def four(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
-    #@TODO: replace by our own website url with authentication
+    # TODO: replace by our own website url with authentication
     url = "www.google.com"
     text = f"Visit our website to find out your payment summary: [▶️ CLICK HERE]({url})."
     query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True)
