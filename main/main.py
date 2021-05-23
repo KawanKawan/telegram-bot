@@ -1,4 +1,5 @@
 import logging
+import os
 from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment
 from utils import facts_to_str,generate_token
 from typing import Dict
@@ -355,7 +356,7 @@ def end(update: Update, _: CallbackContext) -> int:
 
 def main() -> None:
     # Create the Updater and pass it your bot's token.
-    updater = Updater("1812536998:AAFUxezkWLEpoB2-OEWibE1ozbrO5VF5tlA", use_context=True)
+    updater = Updater(os.getenv('API_token'), use_context=True)
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
