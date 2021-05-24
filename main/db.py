@@ -105,6 +105,24 @@ def fetch_payment(userid,request_from,eventid):
             logger.info(f'Document data: {doc.to_dict()}')       
             return doc.to_dict()
 
+def fetch_ongoing_payment(userid):
+    docs = db.collection(u'payment').where(u'id', u'==', userid).stream()
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            logger.info(f'Document data: {doc.to_dict()}')       
+            return doc.to_dict()
+
+def fetch_all_unpaid(userid):
+    docs = db.collection(u'payment').where(u'request_from', u'==', userid).stream()
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            logger.info(f'Document data: {doc.to_dict()}')       
+            return doc.to_dict()
+
 def add_event(userid,title):
     eventid=str(uuid.uuid1())
     event_ref = db.collection(u'event').document(eventid)
@@ -124,7 +142,7 @@ def update_event_status(doc_id):
     })
 
 
-# TODO: fetch all ongoing payment
+
        
 
 
