@@ -60,6 +60,17 @@ def complete_payment(payload,request_from):
         u'request_from': request_from,
     })
 
+def fetch_payment_by_id(payload):
+    payment_ref = db.collection(u'payment').document(payload)
+    doc = payment_ref.get()
+    if doc.exists:
+        logger.info(f'Document data: {doc.to_dict()}')
+        return doc.to_dict()
+    else:
+        logger.info(u'No such document!')
+
+
+
 
 
 def update_payment_amount(userid,request_from,eventid,amount):
@@ -85,7 +96,6 @@ def update_payment_status(userid,request_from,eventid,completed):
             payment_ref.document(doc.id).update({u'completed':completed})            
             
                                                                      
-    
 def fetch_payment(userid,request_from,eventid):
     docs = db.collection(u'payment').where(u'id', u'==', userid).where(u'request_from',u'==',request_from).where(u'eventid',u'==',eventid).stream()
     if not docs:

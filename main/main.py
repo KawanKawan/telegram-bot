@@ -1,6 +1,6 @@
 import logging
 import os
-from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment
+from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id
 from utils import facts_to_str,generate_token
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY = range(13)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,PAY_ME_BACK,IMAGE_REPLY = range(15)
 
 # Callback data
 
@@ -72,6 +72,7 @@ def start(update: Update, _: CallbackContext) -> int:
     # initialize user_data 
     _.user_data['profile']={}
     _.user_data['payment']={}
+    _.user_data['ongoing']={}
 
     #user id in telegram 
     # https://python-telegram-bot.readthedocs.io/en/stable/telegram.user.html#telegram.User
@@ -93,18 +94,41 @@ def start(update: Update, _: CallbackContext) -> int:
         ]
     ]
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    keyboard2 = [
+        [
+            InlineKeyboardButton('I have paid', callback_data=str(ONE)),
+            InlineKeyboardButton("?????", callback_data=str(TWO)),
+        ],
+    ]
 
-    # TODO: if got args in deeplink, need show different interface(ongoing payment details)
     # if deeplink have args, it considers as others click the link
     # each link should a unique payload to search the specific payment in db
     if(_.args):
-        update.message.reply_text(f"yes! bro, you got it {_.args[0]}", parse_mode= 'Markdown',reply_markup=reply_markup)
         complete_payment(_.args[0],update.message.from_user.id)
+        payment=fetch_payment_by_id(_.args[0])
+        user=fetch_profile(payment['id'])
+        _.user_data['ongoing']['payment']=payment
+        _.user_data['ongoing']['user']=user
+        reply_markup = InlineKeyboardMarkup(keyboard2)
+        update.message.reply_text(f"Hey, bro, you owe {user['name']} ${payment['amount']} \n ", parse_mode= 'Markdown',reply_markup=reply_markup)
+        return PAY_ME_BACK
     else:
+        reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text(message0, parse_mode= 'Markdown',reply_markup=reply_markup)
-    # Tell ConversationHandler that we're in state `FIRST` now
-    return FIRST
+        # Tell ConversationHandler that we're in state `FIRST` now
+        return FIRST
+
+def waiting_image(update: Update, _: CallbackContext) -> int:
+    query = update.callback_query
+    query.message.reply_text(f"Really? Send me proof please, I will forward to {_.user_data['ongoing']['user']['name']} ")
+
+    return IMAGE_REPLY
+
+def received_payment_proof(update: Update, _: CallbackContext) -> int:
+    # TODO: handle the message => 1. text ? prompt user to send image 2. image? forwoard to owner
+    update.message.reply_text("Great! Bye! ")
+    return BACK1
+
 
 def start_over(update: Update, _: CallbackContext) -> int:
     """Prompt same text & keyboard as `start` does but not as new message"""
@@ -377,6 +401,16 @@ def main() -> None:
                 CallbackQueryHandler(two, pattern='^' + str(TWO) + '$'),
                 CallbackQueryHandler(three, pattern='^' + str(THREE) + '$'),
                 CallbackQueryHandler(four, pattern='^' + str(FOUR) + '$'),
+            ],
+            PAY_ME_BACK:[
+                CallbackQueryHandler(waiting_image, pattern='^' + str(ONE) + '$'),
+                CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
+            ],
+            IMAGE_REPLY:[
+                MessageHandler(
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')),
+                    received_payment_proof,
+                )
             ],
             EDIT_PROFILE:[
                  CallbackQueryHandler(edit_profile, pattern='^' + str("Name") + '$'),
