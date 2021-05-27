@@ -106,22 +106,26 @@ def fetch_payment(userid,request_from,eventid):
             return doc.to_dict()
 
 def fetch_ongoing_payment(userid):
-    docs = db.collection(u'payment').where(u'id', u'==', userid).stream()
+    result=[]
+    docs = db.collection(u'payment').where(u'id', u'==', userid).where(u'completed', u'==', False).stream()
     if not docs:
         logger.info(u'No such document!')
     else:
         for doc in docs:
-            logger.info(f'Document data: {doc.to_dict()}')       
-            return doc.to_dict()
+            #logger.info(f'Document data: {doc.to_dict()}')     
+            result.append(doc.to_dict())
+    return result
 
 def fetch_all_unpaid(userid):
-    docs = db.collection(u'payment').where(u'request_from', u'==', userid).stream()
+    result=[]
+    docs = db.collection(u'payment').where(u'request_from', u'==', userid).where(u'completed', u'==', False).stream()
     if not docs:
         logger.info(u'No such document!')
     else:
         for doc in docs:
-            logger.info(f'Document data: {doc.to_dict()}')       
-            return doc.to_dict()
+            #logger.info(f'Document data: {doc.to_dict()}')  
+            result.append(doc.to_dict())     
+    return result
 
 def add_event(userid,title):
     eventid=str(uuid.uuid1())
@@ -133,6 +137,16 @@ def add_event(userid,title):
     })
 
     return eventid
+
+def fetch_event(eventid):
+    event_ref = db.collection(u'event').document(eventid)
+    doc = event_ref.get()
+    if doc.exists:
+        logger.info(f'Document data: {doc.to_dict()}')
+        return doc.to_dict()
+    else:
+        logger.info(u'No such document!')
+
 
 def update_event_status(doc_id):
     event_ref = db.collection(u'event').document(doc_id)

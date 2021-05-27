@@ -1,6 +1,6 @@
 import logging
 import os
-from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id
+from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event
 from utils import facts_to_str,generate_token
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -336,29 +336,45 @@ def three(update: Update, _: CallbackContext) -> int:
     query.answer()
 
     # fetch ongoing payment from database
-    # TODO: replace with real data from db
-    payment=["1","2","3","4"]
-    keyboard = [
-        [
-            InlineKeyboardButton(payment[0], callback_data=str(ONE)),
-            InlineKeyboardButton(payment[1], callback_data=str(TWO)),
-        ],
-        [
-            InlineKeyboardButton(payment[2], callback_data=str(THREE)),
-            InlineKeyboardButton(payment[3], callback_data=str(FOUR)),
-        ],
-        [   InlineKeyboardButton(BACK, callback_data=str("start"))]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(
-        text="Here are your ongoing payment",parse_mode= 'Markdown',reply_markup=reply_markup
+    payment1=fetch_ongoing_payment(_.user_data['user_id'])
+    len1=len(payment1)
+ 
+    #populate the keyboard with the payment info
+    keyboard1=[]
+    for x in range(0, len1,2):
+        if x==len1-1:
+            keyboard1.append([InlineKeyboardButton(fetch_event(payment1[x]['eventid'])['title'], callback_data=str(payment1[x]['payload'])),])
+        else:
+            keyboard1.append([InlineKeyboardButton(fetch_event(payment1[x]['eventid'])['title'], callback_data=str(payment1[x]['payload'])),InlineKeyboardButton(fetch_event(payment1[x+1]['eventid'])['title'], callback_data=str(payment1[x+1]['payload'])),])
+
+    reply_markup1 = InlineKeyboardMarkup(keyboard1)
+    query.message.reply_text(
+        text="Here are your ongoing payment",parse_mode= 'Markdown',reply_markup=reply_markup1
     )
+    
+    # TODO: need to find a way to display all unpaid payment belong to the user
+    # payment2=fetch_all_unpaid(_.user_data['user_id'])
+    # len2=len(payment2)
+    # keyboard2=[]
+    # for x in range(0, len2,2):
+    #     if x==len2-1:
+    #         keyboard2.append([InlineKeyboardButton(fetch_event(payment2[x]['eventid'])['title'], callback_data=str(payment2[x]['payload'])),])
+    #     else:
+    #         keyboard2.append([InlineKeyboardButton(fetch_event(payment2[x]['eventid'])['title'], callback_data=str(payment2[x]['payload'])),InlineKeyboardButton(fetch_event(payment2[x+1]['eventid'])['title'], callback_data=str(payment2[x+1]['payload'])),])
+
+    # reply_markup2 = InlineKeyboardMarkup(keyboard2)
+    # query.message.reply_text(
+    #     text="Here are your ongoing payment",parse_mode= 'Markdown',reply_markup=reply_markup2
+    # )
    
     return ONGOING_PAYMENT
 
 def display_payment(update: Update, _: CallbackContext) -> int:
     # TODO: new interface after click on the specific ongoing payment (is it need to pay to someone or collect from someone?)
-    return null
+    # TODO: notification.
+    query = update.callback_query
+    print(query.data)
+    return 0
 
 # 4. View History
 def four(update: Update, context: CallbackContext) -> int:
@@ -443,8 +459,8 @@ def main() -> None:
                 CallbackQueryHandler(two, pattern='^' + str(ONE) + '$'),
             ],
             ONGOING_PAYMENT:[
-                CallbackQueryHandler(display_payment, pattern='^' + str(ONE) + '$'),
-                CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
+                CallbackQueryHandler(display_payment),
+                #CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
             ],
             END: [
                 CallbackQueryHandler(end, pattern='^' + str(ONE) + '$')
