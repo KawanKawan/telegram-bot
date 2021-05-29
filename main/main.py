@@ -25,13 +25,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,PAY_ME_BACK,IMAGE_REPLY = range(15)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,PAY_ME_BACK,IMAGE_REPLY,EQUAL_AMOUNT_REPLY = range(16)
 
 # Callback data
 
 
 # Main Menu
-message0="Hi! Weclome to XXXX. Please choose from the menu."
+message0="Hi! Weclome to Mr. Pay. Please choose from the menu."
 MainMenu=["1. Edit Profile","2. Collect Money","3. Ongoing Payment","4. View History"]
 ONE, TWO, THREE, FOUR = range(4)
 
@@ -159,17 +159,23 @@ def one(update: Update, _: CallbackContext) -> int:
 
     keyboard = [
         [
-            InlineKeyboardButton(buttons_EditProfile[0], callback_data=str("Name")),
-            InlineKeyboardButton(buttons_EditProfile[1], callback_data=str("Phone")),
+            InlineKeyboardButton(buttons_EditProfile[0], callback_data=str("name")),
+            InlineKeyboardButton(buttons_EditProfile[1], callback_data=str("phone")),
         ],
         [
-            InlineKeyboardButton(buttons_EditProfile[2], callback_data=str("Payment Method")),
+            InlineKeyboardButton(buttons_EditProfile[2], callback_data=str("payment")),
             InlineKeyboardButton(BACK, callback_data=str("start")),
         ]
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    profilemessage=facts_to_str(fetch_profile(1078844444))
+    result=fetch_profile(1078844444)
+    facts = list()
+    facts.append(f"*{'Name'}*: {result['name']}")
+    facts.append(f"*{'Phone Number'}*: {result['phone']}")
+    facts.append(f"*{'Preferred Payment Method'}*: {result['payment']}")
+    profilemessage="\n".join(facts).join(['\n', '\n'])
+    
     query.edit_message_text(
         text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
     )
@@ -200,10 +206,17 @@ def received_profile_information(update: Update, _: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    result=fetch_profile(1078844444)
+    facts = list()
+    facts.append(f"*{'Name'}*: {result['name']}")
+    facts.append(f"*{'Phone Number'}*: {result['phone']}")
+    facts.append(f"*{'Preferred Payment Method'}*: {result['payment']}")
+    profilemessage="\n".join(facts).join(['\n', '\n'])
+
     # Send message with text and appended InlineKeyboard
     update.message.reply_text(
     f"Success! {category} section updated."
-    f"{facts_to_str(fetch_profile(1078844444))}",
+    f"{profilemessage}",
     parse_mode= 'Markdown',reply_markup=reply_markup)
 
     # Tell ConversationHandler that we're in state `BACK1` now 
@@ -252,7 +265,7 @@ def share_link(update: Update, context: CallbackContext)-> None:
         event_id=add_event(context.user_data['user_id'],user_data['Title'])
         # TODO: amount need to be replace by specific amount
         add_payment(context.user_data['user_id'],10,event_id,str(payloads[i]))
-        text+=(f"Share the payment information to your friends: [▶️ CLICK HERE]({url}). \n")
+        text+=(f"Share the payment information to your friend {i+1}: [▶️ CLICK HERE]({url}). \n")
         i+=1
 
     # create_deep_linked_url(bot_username, payload=None, group=False) 
@@ -288,13 +301,22 @@ def edit_title(update: Update, _: CallbackContext) -> int:
     else:
         _.user_data['payment']['choice'] = query.data
         query.message.reply_text(f'{query.data} ? Yes, I would love to hear about that!')
-        return EDIT_TITLE_REPLY
+        return EDIT_TITLE_REPLY    
 
-# def choose_amount_type(update: Update, _: CallbackContext) -> int:
+def handle_equal_amount_type(update: Update, _: CallbackContext) -> int:
+    query = update.callback_query
+    _.user_data['payment']['equal'] = True
+    _.user_data['payment']['choice'] = 'amount'
+    query.message.reply_text(f'Equal amount? What is the total amount?')
+
+    return EDIT_TITLE_REPLY
+
+def handle_diff_amount_type(update: Update, _: CallbackContext) -> int:
+    # TODO: handle amount type (differnet amount)
+    query = update.callback_query
+    _.user_data['payment']['diff'] = True
+    query.message.reply_text("Different amount? Let's do it one by one")
     
-
-def handle_amount_type(update: Update, _: CallbackContext) -> int:
-    # TODO: handle amount type (equal amount and differnet amount)
     return 1
 
 def received_payment_info(update: Update, _: CallbackContext) -> int:
@@ -429,9 +451,9 @@ def main() -> None:
                 )
             ],
             EDIT_PROFILE:[
-                 CallbackQueryHandler(edit_profile, pattern='^' + str("Name") + '$'),
-                 CallbackQueryHandler(edit_profile, pattern='^' + str("Phone") + '$'),
-                 CallbackQueryHandler(edit_profile, pattern='^' + str("Payment Method") + '$'),
+                 CallbackQueryHandler(edit_profile, pattern='^' + str("name") + '$'),
+                 CallbackQueryHandler(edit_profile, pattern='^' + str("phone") + '$'),
+                 CallbackQueryHandler(edit_profile, pattern='^' + str("payment") + '$'),
                  CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
             ],
             TYPING_REPLY: [
@@ -454,8 +476,8 @@ def main() -> None:
                 )
             ],
             AMOUNT_TYPE:[
-                CallbackQueryHandler(handle_amount_type, pattern='^' + str("equal") + '$'),
-                CallbackQueryHandler(handle_amount_type, pattern='^' + str("different") + '$'),
+                CallbackQueryHandler(handle_equal_amount_type, pattern='^' + str("equal") + '$'),
+                CallbackQueryHandler(handle_diff_amount_type, pattern='^' + str("different") + '$'),
                 CallbackQueryHandler(two, pattern='^' + str(ONE) + '$'),
             ],
             ONGOING_PAYMENT:[
