@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,PAY_ME_BACK,IMAGE_REPLY,EQUAL_AMOUNT_REPLY = range(16)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,PAY_ME_BACK,IMAGE_REPLY,EQUAL_AMOUNT_REPLY,START_OVER = range(17)
 
 # Callback data
 
@@ -247,7 +247,7 @@ def two(update: Update, _: CallbackContext) -> int:
   
     return COLLECT_MONEY
 
-def share_link(update: Update, context: CallbackContext)-> None:
+def share_link(update: Update, context: CallbackContext)-> int:
     query = update.callback_query
     query.answer()
     bot = context.bot
@@ -258,20 +258,26 @@ def share_link(update: Update, context: CallbackContext)-> None:
     payloads=[]
     i=0
     text = f"{facts_to_str(user_data)}"
+    
+    event_id=add_event(context.user_data['user_id'],user_data['Title'])
     while i<numOfPersons:
         payloads.append(generate_token())
         # TODO: link can only share to groups not individuals
         url = helpers.create_deep_linked_url(bot.username, str(payloads[i]))
-        event_id=add_event(context.user_data['user_id'],user_data['Title'])
         # TODO: amount need to be replace by specific amount
         add_payment(context.user_data['user_id'],10,event_id,str(payloads[i]))
         text+=(f"Share the payment information to your friend {i+1}: [▶️ CLICK HERE]({url}). \n")
         i+=1
 
+    keyboard = [[InlineKeyboardButton(BACK, callback_data=str("start"))]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     # create_deep_linked_url(bot_username, payload=None, group=False) 
     # the link will start the bot with /start, cant start with other command
     # url = helpers.create_deep_linked_url(bot.username, CHECK_THIS_OUT, group=True)
-    query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True)
+    query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True, reply_markup=reply_markup)
+
+    return START_OVER
 
 def edit_title(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
@@ -369,6 +375,7 @@ def three(update: Update, _: CallbackContext) -> int:
         else:
             keyboard1.append([InlineKeyboardButton(fetch_event(payment1[x]['eventid'])['title'], callback_data=str(payment1[x]['payload'])),InlineKeyboardButton(fetch_event(payment1[x+1]['eventid'])['title'], callback_data=str(payment1[x+1]['payload'])),])
 
+    keyboard1.append([InlineKeyboardButton(BACK, callback_data=str("start")),])
     reply_markup1 = InlineKeyboardMarkup(keyboard1)
     query.message.reply_text(
         text="Here are your ongoing payment",parse_mode= 'Markdown',reply_markup=reply_markup1
@@ -405,7 +412,14 @@ def four(update: Update, context: CallbackContext) -> int:
     # TODO: replace by our own website url with authentication
     url = "www.google.com"
     text = f"Visit our website to find out your payment summary: [▶️ CLICK HERE]({url})."
-    query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True)
+
+    keyboard = [
+               InlineKeyboardButton(BACK, callback_data=str(ONE))
+        ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True,reply_markup=reply_markup)
+
+    return START_OVER
 
 
 def end(update: Update, _: CallbackContext) -> int:
@@ -481,11 +495,14 @@ def main() -> None:
                 CallbackQueryHandler(two, pattern='^' + str(ONE) + '$'),
             ],
             ONGOING_PAYMENT:[
+                CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
                 CallbackQueryHandler(display_payment),
-                #CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
             ],
             END: [
                 CallbackQueryHandler(end, pattern='^' + str(ONE) + '$')
+            ],
+            START_OVER:[
+                CallbackQueryHandler(start_over, pattern='^' + str("start") + '$')
             ],
             BACK1:[
                 CallbackQueryHandler(one, pattern='^' + str(ONE) + '$')
