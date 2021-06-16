@@ -264,7 +264,7 @@ def share_link(update: Update, context: CallbackContext)-> int:
         payloads.append(generate_token())
         # TODO: link can only share to groups not individuals
         url = helpers.create_deep_linked_url(bot.username, str(payloads[i]))
-        # TODO: amount need to be replace by specific amount
+        # TODO: amount need to be replace by specific amountof differnet people
         add_payment(context.user_data['user_id'],10,event_id,str(payloads[i]))
         text+=(f"Share the payment information to your friend {i+1}: [▶️ CLICK HERE]({url}). \n")
         i+=1
@@ -334,44 +334,43 @@ def handle_diff_amount_type(update: Update, _: CallbackContext) -> int:
 def received_diff_amount_info(update: Update, _: CallbackContext) -> int:
     num=int(_.user_data['payment']['diff'].get('num'))
     total=int(_.user_data['payment'].get('Number of people'))
-    if:
-        text = update.message.text
-        if(not _.user_data['payment']['Amount'].get(num)):
-            _.user_data['payment']['Amount'][num] = {}
-            _.user_data['payment']['Amount'][num]['name'] = text
-            newnum=total-num+1
-            update.message.reply_text(f"Friend {newnum}: What is his/her amount?")
-            return DIFF_AMOUNT_REPLY
+    text = update.message.text
+    if(not _.user_data['payment']['Amount'].get(num)):
+        _.user_data['payment']['Amount'][num] = {}
+        _.user_data['payment']['Amount'][num]['name'] = text
+        newnum=total-num+1
+        update.message.reply_text(f"Friend {newnum}: What is his/her amount?")
+        return DIFF_AMOUNT_REPLY
+    else:
+        _.user_data['payment']['Amount'][num]['amount'] = text
+        _.user_data['payment']['diff']['num']=num-1
+        update.message.reply_text(
+            f"Success!  Friend {total-num+1} updated.")
+        if(num-1 != 0):
+            update.message.reply_text(f"Friend {total-num+2}: What is his/her name?")
         else:
-            _.user_data['payment']['Amount'][num]['amount'] = text
-            _.user_data['payment']['diff']['num']=num-1
-            update.message.reply_text(
-                f"Success!  Friend {total-num+1} updated.")
-            if(num-1 != 0):
-                update.message.reply_text(f"Friend {total-num+2}: What is his/her name?")
-            else:
-                del _.user_data['payment']['diff']
-                keyboard = [
-                    [
-                        InlineKeyboardButton(buttons_collect[0], callback_data=str("Title")),
-                        InlineKeyboardButton(buttons_collect[1], callback_data=str("Number of people")),
-                    ],
-                    [
-                        InlineKeyboardButton(buttons_collect[2], callback_data=str("Amount")),
-                        InlineKeyboardButton(buttons_collect[3], callback_data=str(LINK_CALLBACKDATA)),
-                    ],
-                    [   InlineKeyboardButton(BACK, callback_data=str("start"))]
-                ]
+            del _.user_data['payment']['diff']
+            keyboard = [
+                [
+                    InlineKeyboardButton(buttons_collect[0], callback_data=str("Title")),
+                    InlineKeyboardButton(buttons_collect[1], callback_data=str("Number of people")),
+                ],
+                [
+                    InlineKeyboardButton(buttons_collect[2], callback_data=str("Amount")),
+                    InlineKeyboardButton(buttons_collect[3], callback_data=str(LINK_CALLBACKDATA)),
+                ],
+                [   InlineKeyboardButton(BACK, callback_data=str("start"))]
+            ]
 
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                user_data = _.user_data['payment']
-                #display the payment info
-                # TODO: different amount message will be different
-                update.message.reply_text(
-                f"Success! Amount section updated."
-                f"{facts_to_str(user_data)}",
-                parse_mode= 'Markdown',reply_markup=reply_markup)
-                return COLLECT_MONEY                     
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            user_data = _.user_data['payment']
+            #display the payment info
+            # TODO: different amount message will be different
+            update.message.reply_text(
+            f"Success! Amount section updated."
+            f"{facts_to_str(user_data)}",
+            parse_mode= 'Markdown',reply_markup=reply_markup)
+            return COLLECT_MONEY                     
 
 
 def received_payment_info(update: Update, _: CallbackContext) -> int:
