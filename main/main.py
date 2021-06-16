@@ -319,7 +319,6 @@ def handle_equal_amount_type(update: Update, _: CallbackContext) -> int:
     return EDIT_TITLE_REPLY
 
 def handle_diff_amount_type(update: Update, _: CallbackContext) -> int:
-    # TODO: handle amount type (differnet amount)
     query = update.callback_query
     _.user_data['payment']['diff']={}
     _.user_data['payment']['Amount']={}
@@ -334,20 +333,20 @@ def handle_diff_amount_type(update: Update, _: CallbackContext) -> int:
 def received_diff_amount_info(update: Update, _: CallbackContext) -> int:
     num=int(_.user_data['payment']['diff'].get('num'))
     total=int(_.user_data['payment'].get('Number of people'))
+    index=total-num+1
     text = update.message.text
-    if(not _.user_data['payment']['Amount'].get(num)):
-        _.user_data['payment']['Amount'][num] = {}
-        _.user_data['payment']['Amount'][num]['name'] = text
-        newnum=total-num+1
-        update.message.reply_text(f"Friend {newnum}: What is his/her amount?")
+    if(not _.user_data['payment']['Amount'].get(index)):
+        _.user_data['payment']['Amount'][index] = {}
+        _.user_data['payment']['Amount'][index]['name'] = text
+        update.message.reply_text(f"Friend {index}: What is his/her amount?")
         return DIFF_AMOUNT_REPLY
     else:
-        _.user_data['payment']['Amount'][num]['amount'] = text
+        _.user_data['payment']['Amount'][index]['amount'] = text
         _.user_data['payment']['diff']['num']=num-1
         update.message.reply_text(
-            f"Success!  Friend {total-num+1} updated.")
+            f"Success!  Friend {index} updated.")
         if(num-1 != 0):
-            update.message.reply_text(f"Friend {total-num+2}: What is his/her name?")
+            update.message.reply_text(f"Friend {index+1}: What is his/her name?")
         else:
             del _.user_data['payment']['diff']
             keyboard = [
@@ -365,7 +364,6 @@ def received_diff_amount_info(update: Update, _: CallbackContext) -> int:
             reply_markup = InlineKeyboardMarkup(keyboard)
             user_data = _.user_data['payment']
             #display the payment info
-            # TODO: different amount message will be different
             update.message.reply_text(
             f"Success! Amount section updated."
             f"{facts_to_str(user_data)}",
