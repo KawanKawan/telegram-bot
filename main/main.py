@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,PAY_ME_BACK,IMAGE_REPLY,EQUAL_AMOUNT_REPLY,START_OVER = range(17)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,DIFF_AMOUNT_REPLY,PAY_ME_BACK,IMAGE_REPLY,EQUAL_AMOUNT_REPLY,START_OVER = range(18)
 
 # Callback data
 
@@ -311,8 +311,9 @@ def edit_title(update: Update, _: CallbackContext) -> int:
 
 def handle_equal_amount_type(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
-    _.user_data['payment']['equal'] = True
-    _.user_data['payment']['choice'] = 'amount'
+    _.user_data['payment']['equal']={}
+    _.user_data['payment']['equal']['bool'] = True
+    _.user_data['payment']['choice'] = 'Amount'
     query.message.reply_text(f'Equal amount? What is the total amount?')
 
     return EDIT_TITLE_REPLY
@@ -320,10 +321,58 @@ def handle_equal_amount_type(update: Update, _: CallbackContext) -> int:
 def handle_diff_amount_type(update: Update, _: CallbackContext) -> int:
     # TODO: handle amount type (differnet amount)
     query = update.callback_query
-    _.user_data['payment']['diff'] = True
+    _.user_data['payment']['diff']={}
+    _.user_data['payment']['Amount']={}
+    _.user_data['payment']['diff']['bool'] = True
+    num=_.user_data['payment'].get('Number of people')
+    _.user_data['payment']['diff']['num']=num
     query.message.reply_text("Different amount? Let's do it one by one")
+    query.message.reply_text("Friend 1: What is his/her name?")
     
-    return 1
+    return DIFF_AMOUNT_REPLY
+
+def received_diff_amount_info(update: Update, _: CallbackContext) -> int:
+    num=int(_.user_data['payment']['diff'].get('num'))
+    total=int(_.user_data['payment'].get('Number of people'))
+    if:
+        text = update.message.text
+        if(not _.user_data['payment']['Amount'].get(num)):
+            _.user_data['payment']['Amount'][num] = {}
+            _.user_data['payment']['Amount'][num]['name'] = text
+            newnum=total-num+1
+            update.message.reply_text(f"Friend {newnum}: What is his/her amount?")
+            return DIFF_AMOUNT_REPLY
+        else:
+            _.user_data['payment']['Amount'][num]['amount'] = text
+            _.user_data['payment']['diff']['num']=num-1
+            update.message.reply_text(
+                f"Success!  Friend {total-num+1} updated.")
+            if(num-1 != 0):
+                update.message.reply_text(f"Friend {total-num+2}: What is his/her name?")
+            else:
+                del _.user_data['payment']['diff']
+                keyboard = [
+                    [
+                        InlineKeyboardButton(buttons_collect[0], callback_data=str("Title")),
+                        InlineKeyboardButton(buttons_collect[1], callback_data=str("Number of people")),
+                    ],
+                    [
+                        InlineKeyboardButton(buttons_collect[2], callback_data=str("Amount")),
+                        InlineKeyboardButton(buttons_collect[3], callback_data=str(LINK_CALLBACKDATA)),
+                    ],
+                    [   InlineKeyboardButton(BACK, callback_data=str("start"))]
+                ]
+
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                user_data = _.user_data['payment']
+                #display the payment info
+                # TODO: different amount message will be different
+                update.message.reply_text(
+                f"Success! Amount section updated."
+                f"{facts_to_str(user_data)}",
+                parse_mode= 'Markdown',reply_markup=reply_markup)
+                return COLLECT_MONEY                     
+
 
 def received_payment_info(update: Update, _: CallbackContext) -> int:
     user_data = _.user_data['payment']
@@ -493,6 +542,12 @@ def main() -> None:
                 CallbackQueryHandler(handle_equal_amount_type, pattern='^' + str("equal") + '$'),
                 CallbackQueryHandler(handle_diff_amount_type, pattern='^' + str("different") + '$'),
                 CallbackQueryHandler(two, pattern='^' + str(ONE) + '$'),
+            ],
+            DIFF_AMOUNT_REPLY:[
+                 MessageHandler(
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')),
+                    received_diff_amount_info,
+                )
             ],
             ONGOING_PAYMENT:[
                 CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
