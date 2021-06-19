@@ -1,6 +1,6 @@
 import logging
 import os
-from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event
+from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events
 from utils import facts_to_str,generate_token
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -77,6 +77,7 @@ def start(update: Update, _: CallbackContext) -> int:
     #user id in telegram 
     # https://python-telegram-bot.readthedocs.io/en/stable/telegram.user.html#telegram.User
     _.user_data['user_id']=update.message.from_user.id
+    #print(_.user_data['user_id'])
     
 
     # Build InlineKeyboard where each button has a displayed text
@@ -412,14 +413,17 @@ def three(update: Update, _: CallbackContext) -> int:
     # fetch ongoing payment from database
     payment1=fetch_ongoing_payment(_.user_data['user_id'])
     len1=len(payment1)
+
+    all_events=fetch_all_unfinished_events(_.user_data['user_id'])
+    len2=len(all_events)
  
     #populate the keyboard with the payment info
     keyboard1=[]
-    for x in range(0, len1,2):
-        if x==len1-1:
-            keyboard1.append([InlineKeyboardButton(fetch_event(payment1[x]['eventid'])['title'], callback_data=str(payment1[x]['payload'])),])
+    for x in range(0, len2,2):
+        if x==len2-1:
+            keyboard1.append([InlineKeyboardButton(all_events[x]['title'], callback_data=str(all_events[x]['eventid'])),])
         else:
-            keyboard1.append([InlineKeyboardButton(fetch_event(payment1[x]['eventid'])['title'], callback_data=str(payment1[x]['payload'])),InlineKeyboardButton(fetch_event(payment1[x+1]['eventid'])['title'], callback_data=str(payment1[x+1]['payload'])),])
+            keyboard1.append([InlineKeyboardButton(all_events[x]['title'], callback_data=str(all_events[x]['eventid'])),InlineKeyboardButton(all_events[x+1]['title'], callback_data=str(all_events[x+1]['eventid'])),])
 
     keyboard1.append([InlineKeyboardButton(BACK, callback_data=str("start")),])
     reply_markup1 = InlineKeyboardMarkup(keyboard1)
@@ -447,31 +451,45 @@ def three(update: Update, _: CallbackContext) -> int:
 def display_payment(update: Update, _: CallbackContext) -> int:
     # TODO: notification.
     query = update.callback_query
-    data=fetch_payment_by_id(query.data)
 
+    data=fetch_event(query.data)
+    print("________")
+    print(data)
     buttons_notification = [
-    '1', '2',
+    'Remind now', '2',
     '3', '4',
     ]
 
+    # TODO: other types of functions: 2. turn off auto-notifications 
     keyboard = [
         [
-            InlineKeyboardButton(buttons_notification[0], callback_data=str("1")),
+            InlineKeyboardButton(buttons_notification[0], callback_data=str(query.data)),
             InlineKeyboardButton(buttons_notification[1], callback_data=str("2")),
         ],
         [
             InlineKeyboardButton(buttons_notification[2], callback_data=str("3")),
             InlineKeyboardButton(buttons_notification[3], callback_data=str("4")),
         ],
-        [   InlineKeyboardButton(BACK, callback_data=str(THREE))]
+        [   InlineKeyboardButton(BACK, callback_data=str(ONE))]
     ]
 
+    # TODO：timestamp display not working
+    msg=facts_to_str(data)
     reply_markup = InlineKeyboardMarkup(keyboard)
-    query.message.reply_text(
-    f"{facts_to_str(data)}",
-    parse_mode= 'Markdown',reply_markup=reply_markup)
+    query.message.reply_text(msg,reply_markup=reply_markup)
 
     return HANDLE_HISTORY
+
+def send_notification(update: Update, _: CallbackContext) -> int:
+    bot = _.bot
+    query = update.callback_query
+    data=fetch_payment_by_id(query.data)
+    user=fetch_profile(data['id'])
+    # TODO: send notification to everyone
+    bot.send_message(chat_id=data['request_from'], text=f"Hey, bro, you owe {user['name']}   ${data['amount']} \n Please start the bot or visit our website for details. ")
+    query.message.reply_text("notification sent")
+    return HANDLE_HISTORY
+
 
 # 4. View History
 def four(update: Update, context: CallbackContext) -> int:
@@ -573,11 +591,11 @@ def main() -> None:
                 CallbackQueryHandler(display_payment),
             ],
             HANDLE_HISTORY:[
-                CallbackQueryHandler(edit_profile, pattern='^' + str("1") + '$'),
                 CallbackQueryHandler(edit_profile, pattern='^' + str("2") + '$'),
                 CallbackQueryHandler(edit_profile, pattern='^' + str("3") + '$'),
                 CallbackQueryHandler(edit_profile, pattern='^' + str("4") + '$'),
-                CallbackQueryHandler(three, pattern='^' + str(THREE) + '$'),
+                CallbackQueryHandler(three, pattern='^' + str(ONE) + '$'),
+                CallbackQueryHandler(send_notification),
             ],
             END: [
                 CallbackQueryHandler(end, pattern='^' + str(ONE) + '$')

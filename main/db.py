@@ -127,6 +127,33 @@ def fetch_all_unpaid(userid):
             result.append(doc.to_dict())     
     return result
 
+def fetch_all_unfinished_events(userid):
+    result=[]
+    docs = db.collection(u'event').where(u'userid', u'==', userid).stream()
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            data = doc.to_dict()
+            print(data)
+            data['eventid']=doc.id
+            if(not check_complete(data['userid'],doc.id)):
+                print(data['eventid'])
+                result.append(data)
+    return result
+
+def check_complete(userid,eventid):
+    docs = db.collection(u'payment').where(u'id', u'==', userid).where(u'eventid',u'==',eventid).stream()
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            if(not doc.to_dict()['completed']):
+                return False
+    return True   
+            
+
+
 def add_event(userid,title):
     eventid=str(uuid.uuid1())
     event_ref = db.collection(u'event').document(eventid)
