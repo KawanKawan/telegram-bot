@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Stages
-FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,DIFF_AMOUNT_REPLY,PAY_ME_BACK,IMAGE_REPLY,EQUAL_AMOUNT_REPLY,START_OVER = range(18)
+FIRST,EDIT_PROFILE,COLLECT_MONEY,ONGOING_PAYMENT,AMOUNT_TYPE,END,TYPING_REPLY,BACK1,BACK2,BACK3,BACK4, SHARE, EDIT_TITLE_REPLY,DIFF_AMOUNT_REPLY,PAY_ME_BACK,IMAGE_REPLY,EQUAL_AMOUNT_REPLY,START_OVER,HANDLE_HISTORY = range(19)
 
 # Callback data
 
@@ -445,11 +445,33 @@ def three(update: Update, _: CallbackContext) -> int:
     return ONGOING_PAYMENT
 
 def display_payment(update: Update, _: CallbackContext) -> int:
-    # TODO: new interface after click on the specific ongoing payment (is it need to pay to someone or collect from someone?)
     # TODO: notification.
     query = update.callback_query
-    print(query.data)
-    return 0
+    data=fetch_payment_by_id(query.data)
+
+    buttons_notification = [
+    '1', '2',
+    '3', '4',
+    ]
+
+    keyboard = [
+        [
+            InlineKeyboardButton(buttons_notification[0], callback_data=str("1")),
+            InlineKeyboardButton(buttons_notification[1], callback_data=str("2")),
+        ],
+        [
+            InlineKeyboardButton(buttons_notification[2], callback_data=str("3")),
+            InlineKeyboardButton(buttons_notification[3], callback_data=str("4")),
+        ],
+        [   InlineKeyboardButton(BACK, callback_data=str(THREE))]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.message.reply_text(
+    f"{facts_to_str(data)}",
+    parse_mode= 'Markdown',reply_markup=reply_markup)
+
+    return HANDLE_HISTORY
 
 # 4. View History
 def four(update: Update, context: CallbackContext) -> int:
@@ -549,6 +571,13 @@ def main() -> None:
             ONGOING_PAYMENT:[
                 CallbackQueryHandler(start_over, pattern='^' + str("start") + '$'),
                 CallbackQueryHandler(display_payment),
+            ],
+            HANDLE_HISTORY:[
+                CallbackQueryHandler(edit_profile, pattern='^' + str("1") + '$'),
+                CallbackQueryHandler(edit_profile, pattern='^' + str("2") + '$'),
+                CallbackQueryHandler(edit_profile, pattern='^' + str("3") + '$'),
+                CallbackQueryHandler(edit_profile, pattern='^' + str("4") + '$'),
+                CallbackQueryHandler(three, pattern='^' + str(THREE) + '$'),
             ],
             END: [
                 CallbackQueryHandler(end, pattern='^' + str(ONE) + '$')
