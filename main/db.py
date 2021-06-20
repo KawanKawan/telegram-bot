@@ -152,14 +152,22 @@ def check_complete(userid,eventid):
                 return False
     return True   
             
-
+def fetch_payments_of_event(eventid):
+    result=[]
+    docs = db.collection(u'payment').where(u'eventid', u'==', eventid).stream()
+    if not docs:
+        logger.info(u'No such document!')
+    else:
+        for doc in docs:
+            result.append(doc.to_dict())     
+    return result
 
 def add_event(userid,title):
     eventid=str(uuid.uuid1())
     event_ref = db.collection(u'event').document(eventid)
     event_ref.set({
         u'userid':userid,
-        u'startdate': datetime.datetime.now(),
+        u'date': datetime.datetime.now(),
         u'title': title,
     })
 

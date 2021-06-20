@@ -1,10 +1,14 @@
 from typing import Dict
 import uuid
+from datetime import datetime
+
+
+
 def facts_to_str(user_data: Dict[str, str]) -> str:
     facts = list()
 
     for key, value in user_data.items():
-        if(key=='Amount'):
+        if(key=='Amount' or key=='amount'):
             facts.append(f'*{key}*: {facts_amount_str(value)}')
         else:
             facts.append(f'*{key}*: {value}')

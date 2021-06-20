@@ -1,6 +1,6 @@
 import logging
 import os
-from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events
+from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events,fetch_payments_of_event
 from utils import facts_to_str,generate_token
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -449,12 +449,9 @@ def three(update: Update, _: CallbackContext) -> int:
     return ONGOING_PAYMENT
 
 def display_payment(update: Update, _: CallbackContext) -> int:
-    # TODO: notification.
     query = update.callback_query
 
     data=fetch_event(query.data)
-    print("________")
-    print(data)
     buttons_notification = [
     'Remind now', '2',
     '3', '4',
@@ -472,11 +469,27 @@ def display_payment(update: Update, _: CallbackContext) -> int:
         ],
         [   InlineKeyboardButton(BACK, callback_data=str(ONE))]
     ]
+    #convert datetime to format "12 June, 2018"
+    datetime=data['date']
+    d = datetime.strftime("%d %B %Y")	
 
-    # TODO：timestamp display not working
-    msg=facts_to_str(data)
+    #fetch all payments related to the event
+    all_payment=fetch_payments_of_event(data['eventid'])
+
+    facts = list()
+    facts.append(f"*{'Title'}*: {data['title']}")
+    facts.append(f"*{'Date'}*: {d}")
+    facts.append(f"*{'Details'}*: \n")
+    for x in range(0, len(all_payment)):
+        request_from=all_payment[x]['request_from']
+        payee_profile=fetch_profile(request_from)
+        facts.append(f"  *{'Name'}*: {payee_profile['name']}")
+        facts.append(f"  *{'Amount'}*: {all_payment[x]['amount']} \n")
+
+    msg="\n".join(facts).join(['\n', '\n'])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
-    query.message.reply_text(msg,reply_markup=reply_markup)
+    query.message.reply_text(text=msg,parse_mode='Markdown',reply_markup=reply_markup)
 
     return HANDLE_HISTORY
 
@@ -499,11 +512,9 @@ def four(update: Update, context: CallbackContext) -> int:
     url = "www.google.com"
     text = f"Visit our website to find out your payment summary: [▶️ CLICK HERE]({url})."
 
-    keyboard = [
-               InlineKeyboardButton(BACK, callback_data=str(ONE))
-        ]
+    keyboard = [[InlineKeyboardButton(BACK, callback_data=str("start"))],]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(text=text, parse_mode='Markdown', disable_web_page_preview=True,reply_markup=reply_markup)
+    query.message.reply_text(text=text, parse_mode='Markdown', disable_web_page_preview=True,reply_markup=reply_markup)
 
     return START_OVER
 
