@@ -60,6 +60,12 @@ def complete_payment(payload,request_from):
         u'request_from': request_from,
     })
 
+def finish_payment(payload):
+    payment_ref = db.collection(u'payment').document(payload)
+    payment_ref.update({
+        u'completed': True,
+    })
+
 def fetch_payment_by_id(payload):
     payment_ref = db.collection(u'payment').document(payload)
     doc = payment_ref.get()

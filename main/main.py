@@ -1,6 +1,6 @@
 import logging
 import os
-from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events,fetch_payments_of_event
+from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,finish_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events,fetch_payments_of_event
 from utils import facts_to_str,generate_token
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -98,7 +98,7 @@ def start(update: Update, _: CallbackContext) -> int:
     keyboard2 = [
         [
             InlineKeyboardButton('I have paid', callback_data=str(ONE)),
-            InlineKeyboardButton("?????", callback_data=str(TWO)),
+            InlineKeyboardButton(BACK, callback_data=str("start")),
         ],
     ]
 
@@ -126,8 +126,9 @@ def waiting_image(update: Update, _: CallbackContext) -> int:
     return IMAGE_REPLY
 
 def received_payment_proof(update: Update, _: CallbackContext) -> int:
-    # TODO: handle the message => 1. text ? prompt user to send image 2. image? forwoard to owner
-    update.message.reply_text("Great! Bye! ")
+    # TODO: handle the message => handle the reply => save to db => forward to web
+    finish_payment(_.user_data['ongoing']['payment']['payload'])
+    update.message.reply_text("Great! Thank you!  ")
     return BACK1
 
 
@@ -229,6 +230,11 @@ def two(update: Update, _: CallbackContext) -> int:
     """Show new choice of buttons"""
     query = update.callback_query
     query.answer()
+
+    _.user_data['payment']['equal']={}
+    _.user_data['payment']['diff']={}
+    _.user_data['payment']['equal']['bool'] = False
+    _.user_data['payment']['diff']['bool'] = False
     
     keyboard = [
         [
@@ -265,9 +271,15 @@ def share_link(update: Update, context: CallbackContext)-> int:
         payloads.append(generate_token())
         # TODO: link can only share to groups not individuals
         url = helpers.create_deep_linked_url(bot.username, str(payloads[i]))
-        # TODO: amount need to be replace by specific amountof differnet people
-        add_payment(context.user_data['user_id'],10,event_id,str(payloads[i]))
-        text+=(f"Share the payment information to your friend {i+1}: [▶️ CLICK HERE]({url}). \n")
+        # TODO: remove unnecessary data in message
+        if(context.user_data['payment']['equal']==True):
+            amount = int(context.user_data['payment']['Amount'])
+            add_payment(context.user_data['user_id'],amount/numOfPersons,event_id,str(payloads[i]))
+            text+=(f"Share the payment information to your friend {i+1}: [▶️ CLICK HERE]({url}). \n")
+        else:
+            amount = context.user_data['payment']['Amount'][i+1]['amount']
+            add_payment(context.user_data['user_id'],amount,event_id,str(payloads[i]))
+            text+=(f"Share the payment information to *{context.user_data['payment']['Amount'][i+1]['name']}* : [▶️ CLICK HERE]({url}). \n")
         i+=1
 
     keyboard = [[InlineKeyboardButton(BACK, callback_data=str("start"))]]
@@ -312,7 +324,6 @@ def edit_title(update: Update, _: CallbackContext) -> int:
 
 def handle_equal_amount_type(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
-    _.user_data['payment']['equal']={}
     _.user_data['payment']['equal']['bool'] = True
     _.user_data['payment']['choice'] = 'Amount'
     query.message.reply_text(f'Equal amount? What is the total amount?')
@@ -321,7 +332,6 @@ def handle_equal_amount_type(update: Update, _: CallbackContext) -> int:
 
 def handle_diff_amount_type(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
-    _.user_data['payment']['diff']={}
     _.user_data['payment']['Amount']={}
     _.user_data['payment']['diff']['bool'] = True
     num=_.user_data['payment'].get('Number of people')
@@ -365,6 +375,7 @@ def received_diff_amount_info(update: Update, _: CallbackContext) -> int:
             reply_markup = InlineKeyboardMarkup(keyboard)
             user_data = _.user_data['payment']
             #display the payment info
+            # TODO: remove unnecessary data in message
             update.message.reply_text(
             f"Success! Amount section updated."
             f"{facts_to_str(user_data)}",
@@ -431,31 +442,14 @@ def three(update: Update, _: CallbackContext) -> int:
         text="Here are your ongoing payment",parse_mode= 'Markdown',reply_markup=reply_markup1
     )
     
-    # TODO: need to find a way to display all unpaid payment belong to the user
-    # payment2=fetch_all_unpaid(_.user_data['user_id'])
-    # len2=len(payment2)
-    # keyboard2=[]
-    # for x in range(0, len2,2):
-    #     if x==len2-1:
-    #         keyboard2.append([InlineKeyboardButton(fetch_event(payment2[x]['eventid'])['title'], callback_data=str(payment2[x]['payload'])),])
-    #     else:
-    #         keyboard2.append([InlineKeyboardButton(fetch_event(payment2[x]['eventid'])['title'], callback_data=str(payment2[x]['payload'])),InlineKeyboardButton(fetch_event(payment2[x+1]['eventid'])['title'], callback_data=str(payment2[x+1]['payload'])),])
-
-    # reply_markup2 = InlineKeyboardMarkup(keyboard2)
-    # query.message.reply_text(
-    #     text="Here are your ongoing payment",parse_mode= 'Markdown',reply_markup=reply_markup2
-    # )
-   
+    # TODO: need to find a way to display all unpaid payment belong to the user  
     return ONGOING_PAYMENT
 
 def display_payment(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
 
     data=fetch_event(query.data)
-    buttons_notification = [
-    'Remind now', '2',
-    '3', '4',
-    ]
+    buttons_notification = ['Remind now', '2','3', '4',]
 
     # TODO: other types of functions: 2. turn off auto-notifications 
     keyboard = [
