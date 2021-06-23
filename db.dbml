@@ -3,11 +3,11 @@ Project TelegramBot {
   Note: ''
 }
 
-Table users {
+Table user {
   id int [pk, not null]
-  Name varchar[not null]
-  Phone int [not null]
-  Payment Method varchar [not null, default:PayNow]
+  name varchar [not null]
+  phone int [not null]
+  payment varchar [not null, default:"PayNow"]
 }
 
 Table payment {
@@ -20,10 +20,14 @@ Table payment {
 }
 
 Table event{
-  user_id int [not null]
+  id int [not null]
   startdate date [not null]
   title varchar [not null]
+  userid int [not null]
   completed bool [not null, default:false]
 }
 
-Ref: payment.user_id > userProfile.user_id  
+Ref: payment.id > user.id  
+Ref: payment.request_from > user.id 
+Ref: payment.eventid > event.id
+Ref: event.userid > user.id  
