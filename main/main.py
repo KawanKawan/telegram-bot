@@ -1,7 +1,7 @@
 import logging
 import os
 from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,finish_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events,fetch_payments_of_event
-from utils import facts_to_str,generate_token
+from utils import facts_to_str,generate_token, multi_users_to_str
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.utils import helpers
@@ -37,7 +37,7 @@ ONE, TWO, THREE, FOUR = range(4)
 
 #1. Edit Profile
 message1="Your profile:\n"
-buttons_EditProfile=["Edit Name","Edit Phone Number","Edit Preferred Payment Menthods","<<BACK"]
+buttons_EditProfile=["Edit Name","Edit Phone","Edit Preferred Payment Methods","<<BACK"]
 ONE1,ONE2,ONE3=range(4,7)
 #2. Collect Money
 message2="Start collect money from your friends!"
@@ -166,8 +166,8 @@ def one(update: Update, _: CallbackContext) -> int:
         ],
         [
             InlineKeyboardButton(buttons_EditProfile[2], callback_data=str("payment")),
-            InlineKeyboardButton(BACK, callback_data=str("start")),
-        ]
+        ],
+        [InlineKeyboardButton(BACK, callback_data=str("start")),]
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -264,7 +264,10 @@ def share_link(update: Update, context: CallbackContext)-> int:
 
     payloads=[]
     i=0
-    text = f"{facts_to_str(user_data)}"
+    if(context.user_data['payment']['equal']['bool']==True):
+        text = f"{facts_to_str(user_data)}"
+    else:
+        text = f"{multi_users_to_str(user_data)}"
     
     event_id=add_event(context.user_data['user_id'],user_data['Title'])
     while i<numOfPersons:
@@ -272,7 +275,7 @@ def share_link(update: Update, context: CallbackContext)-> int:
         # TODO: link can only share to groups not individuals
         url = helpers.create_deep_linked_url(bot.username, str(payloads[i]))
         # TODO: remove unnecessary data in message
-        if(context.user_data['payment']['equal']==True):
+        if(context.user_data['payment']['equal']['bool']==True):
             amount = int(context.user_data['payment']['Amount'])
             add_payment(context.user_data['user_id'],amount/numOfPersons,event_id,str(payloads[i]))
             text+=(f"Share the payment information to your friend {i+1}: [▶️ CLICK HERE]({url}). \n")
@@ -285,6 +288,8 @@ def share_link(update: Update, context: CallbackContext)-> int:
     keyboard = [[InlineKeyboardButton(BACK, callback_data=str("start"))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # clear payment 
+    context.user_data['payment']={}
     # create_deep_linked_url(bot_username, payload=None, group=False) 
     # the link will start the bot with /start, cant start with other command
     # url = helpers.create_deep_linked_url(bot.username, CHECK_THIS_OUT, group=True)
@@ -378,7 +383,7 @@ def received_diff_amount_info(update: Update, _: CallbackContext) -> int:
             # TODO: remove unnecessary data in message
             update.message.reply_text(
             f"Success! Amount section updated."
-            f"{facts_to_str(user_data)}",
+            f"{multi_users_to_str(user_data)}",
             parse_mode= 'Markdown',reply_markup=reply_markup)
             return COLLECT_MONEY                     
 
@@ -491,9 +496,10 @@ def send_notification(update: Update, _: CallbackContext) -> int:
     bot = _.bot
     query = update.callback_query
     data=fetch_payment_by_id(query.data)
-    user=fetch_profile(data['id'])
+    # user=fetch_profile(data['id'])
     # TODO: send notification to everyone
-    bot.send_message(chat_id=data['request_from'], text=f"Hey, bro, you owe {user['name']}   ${data['amount']} \n Please start the bot or visit our website for details. ")
+    # bot.send_message(chat_id=data['request_from'], text=f"Hey, bro, you owe {user['name']}   ${data['amount']} \n Please start the bot or visit our website for details. ")
+    bot.send_message(chat_id=1078844444, text=f"Hey, bro, you owe Zikang   $999999 \n Please start the bot or visit our website for details. ")
     query.message.reply_text("notification sent")
     return HANDLE_HISTORY
 
