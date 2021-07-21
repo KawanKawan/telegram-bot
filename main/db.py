@@ -16,13 +16,10 @@ db = firestore.client()
 
 PAYMENT_METHOD=["PAYNOW","PAYPAL","PAYLAH","WECHAT"]
 
-def add_user(userid,name,phone,payment_method):
+def add_user(userid):
     user_ref = db.collection(u'users').document(str(userid))
     user_ref.set({
         u'id': userid,
-        u'Name': name,
-        u'Phone': phone,
-        u'Payment Method': PAYMENT_METHOD[payment_method]
     })
 
 def fetch_profile(userid):
@@ -195,6 +192,19 @@ def update_event_status(doc_id):
     event_ref.update({
         u'completed':True,
     })
+
+def change_notification(eventid,bool):
+    event_ref = db.collection(u'event').document(str(eventid))
+    event_ref.update({
+        u'notification':bool,
+    })
+
+def change_notification_frequency(eventid,fre):
+    event_ref = db.collection(u'event').document(str(eventid))
+    event_ref.update({
+        u'frequency':fre,
+    })
+
 
 
 

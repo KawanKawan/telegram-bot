@@ -1,6 +1,6 @@
 import logging
 import os
-from db import fetch_profile, update_profile, fetch_payment, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,finish_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events,fetch_payments_of_event
+from db import fetch_profile, update_profile, add_user, add_payment,update_payment_amount,update_payment_status,add_event,complete_payment,finish_payment,fetch_payment_by_id, fetch_ongoing_payment,fetch_all_unpaid, fetch_event,fetch_all_unfinished_events,fetch_payments_of_event, change_notification, change_notification_frequency
 from utils import facts_to_str,generate_token, multi_users_to_str
 from typing import Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -65,7 +65,7 @@ def start(update: Update, _: CallbackContext) -> int:
     """Send message on `/start`."""
     # Get user that sent /start and log his name
     user = update.message.from_user  
-
+   
     logger.info("User %s started the conversation.", user.first_name)
     
     
@@ -73,6 +73,7 @@ def start(update: Update, _: CallbackContext) -> int:
     _.user_data['profile']={}
     _.user_data['payment']={}
     _.user_data['ongoing']={}
+    _.user_data['user']=user
 
     #user id in telegram 
     # https://python-telegram-bot.readthedocs.io/en/stable/telegram.user.html#telegram.User
@@ -171,16 +172,41 @@ def one(update: Update, _: CallbackContext) -> int:
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    result=fetch_profile(1078844444)
-    facts = list()
-    facts.append(f"*{'Name'}*: {result['name']}")
-    facts.append(f"*{'Phone Number'}*: {result['phone']}")
-    facts.append(f"*{'Preferred Payment Method'}*: {result['payment']}")
-    profilemessage="\n".join(facts).join(['\n', '\n'])
-    
-    query.edit_message_text(
-        text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
-    )
+
+    result=fetch_profile(_.user_data['user']['id'])
+   
+
+    if(not result):
+        facts = list()
+        facts.append("Hi! It seems your are new user. Can you help us fill in your profile information?")
+        facts.append(f"*{'Name'}*: ")
+        facts.append(f"*{'Phone Number'}*: ")
+        facts.append(f"*{'Preferred Payment Method'}*: ")
+        profilemessage="\n".join(facts).join(['\n', '\n'])
+        
+        add_user(_.user_data['user']['id'])
+        query.edit_message_text(
+            text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
+        )
+    else:
+        facts = list()
+        if(result.get('name')):
+            facts.append(f"*{'Name'}*: {result['name']}")
+        else:
+            facts.append(f"*{'Name'}*:")
+        if(result.get('phone')):
+            facts.append(f"*{'Phone Number'}*: {result['phone']}")
+        else:
+            facts.append(f"*{'Phone Number'}*:")
+        if(result.get('payment')):
+            facts.append(f"*{'Preferred Payment Method'}*: {result['payment']}")
+        else:
+            facts.append(f"*{'Preferred Payment Method'}*:")
+        profilemessage="\n".join(facts).join(['\n', '\n'])
+        query.edit_message_text(
+            text=message1+profilemessage, parse_mode= 'Markdown',reply_markup=reply_markup
+        )
+
     return EDIT_PROFILE
 
 def edit_profile(update: Update, _: CallbackContext) -> int:
@@ -208,11 +234,21 @@ def received_profile_information(update: Update, _: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    result=fetch_profile(1078844444)
+    result=fetch_profile( _.user_data['user']['id'])
     facts = list()
-    facts.append(f"*{'Name'}*: {result['name']}")
-    facts.append(f"*{'Phone Number'}*: {result['phone']}")
-    facts.append(f"*{'Preferred Payment Method'}*: {result['payment']}")
+    if(result.get('name')):
+        facts.append(f"*{'Name'}*: {result['name']}")
+    else:
+        facts.append(f"*{'Name'}*:")
+    if(result.get('phone')):
+        facts.append(f"*{'Phone Number'}*: {result['phone']}")
+    else:
+        facts.append(f"*{'Phone Number'}*:")
+    if(result.get('payment')):
+        facts.append(f"*{'Preferred Payment Method'}*: {result['payment']}")
+    else:
+        facts.append(f"*{'Preferred Payment Method'}*:")
+    
     profilemessage="\n".join(facts).join(['\n', '\n'])
 
     # Send message with text and appended InlineKeyboard
@@ -274,7 +310,6 @@ def share_link(update: Update, context: CallbackContext)-> int:
         payloads.append(generate_token())
         # TODO: link can only share to groups not individuals
         url = helpers.create_deep_linked_url(bot.username, str(payloads[i]))
-        # TODO: remove unnecessary data in message
         if(context.user_data['payment']['equal']['bool']==True):
             amount = int(context.user_data['payment']['Amount'])
             add_payment(context.user_data['user_id'],amount/numOfPersons,event_id,str(payloads[i]))
@@ -380,7 +415,6 @@ def received_diff_amount_info(update: Update, _: CallbackContext) -> int:
             reply_markup = InlineKeyboardMarkup(keyboard)
             user_data = _.user_data['payment']
             #display the payment info
-            # TODO: remove unnecessary data in message
             update.message.reply_text(
             f"Success! Amount section updated."
             f"{multi_users_to_str(user_data)}",
@@ -454,9 +488,17 @@ def display_payment(update: Update, _: CallbackContext) -> int:
     query = update.callback_query
 
     data=fetch_event(query.data)
-    buttons_notification = ['Remind now', '2','3', '4',]
+    #save current payment id
+    _.user_data['event']=data
 
-    # TODO: other types of functions: 2. turn off auto-notifications 
+    auto=data['notification']
+    if(auto):
+        button='Turn off '
+    else:
+        button='Turn on '
+
+    buttons_notification = ['Remind now', button,'Once per day', 'Once per week',]
+
     keyboard = [
         [
             InlineKeyboardButton(buttons_notification[0], callback_data=str(query.data)),
@@ -478,7 +520,13 @@ def display_payment(update: Update, _: CallbackContext) -> int:
     facts = list()
     facts.append(f"*{'Title'}*: {data['title']}")
     facts.append(f"*{'Date'}*: {d}")
+    if(auto):
+        facts.append(f"*{'Auto Notification '}*: ON")
+    else:
+        facts.append(f"*{'Auto Notification '}*: OFF")
+    facts.append(f"*{'Notification frequency'}*: per {data['frequency']}")
     facts.append(f"*{'Details'}*: \n")
+
     for x in range(0, len(all_payment)):
         request_from=all_payment[x]['request_from']
         payee_profile=fetch_profile(request_from)
@@ -501,6 +549,30 @@ def send_notification(update: Update, _: CallbackContext) -> int:
     # bot.send_message(chat_id=data['request_from'], text=f"Hey, bro, you owe {user['name']}   ${data['amount']} \n Please start the bot or visit our website for details. ")
     bot.send_message(chat_id=1078844444, text=f"Hey, bro, you owe Zikang   $999999 \n Please start the bot or visit our website for details. ")
     query.message.reply_text("notification sent")
+    return HANDLE_HISTORY
+
+def toggle_notifications(update: Update, _: CallbackContext) -> int:
+    bot = _.bot
+    query = update.callback_query
+    event=_.user_data['event']
+    change_notification( event['eventid'], not event['notification'])
+    query.message.reply_text("notification setting updated")
+    return HANDLE_HISTORY
+
+def perday_notification(update: Update, _: CallbackContext) -> int:
+    bot = _.bot
+    query = update.callback_query
+    event=_.user_data['event']
+    change_notification_frequency( event['eventid'],'day')
+    query.message.reply_text("notification setting updated")
+    return HANDLE_HISTORY
+
+def perweek_notification(update: Update, _: CallbackContext) -> int:
+    bot = _.bot
+    query = update.callback_query
+    event=_.user_data['event']
+    change_notification_frequency( event['eventid'], 'week')
+    query.message.reply_text("notification setting updated")
     return HANDLE_HISTORY
 
 
@@ -602,9 +674,9 @@ def main() -> None:
                 CallbackQueryHandler(display_payment),
             ],
             HANDLE_HISTORY:[
-                CallbackQueryHandler(edit_profile, pattern='^' + str("2") + '$'),
-                CallbackQueryHandler(edit_profile, pattern='^' + str("3") + '$'),
-                CallbackQueryHandler(edit_profile, pattern='^' + str("4") + '$'),
+                CallbackQueryHandler(toggle_notifications, pattern='^' + str("2") + '$'),
+                CallbackQueryHandler(perday_notification, pattern='^' + str("3") + '$'),
+                CallbackQueryHandler(perweek_notification, pattern='^' + str("4") + '$'),
                 CallbackQueryHandler(three, pattern='^' + str(ONE) + '$'),
                 CallbackQueryHandler(send_notification),
             ],
