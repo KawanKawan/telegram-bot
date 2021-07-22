@@ -312,11 +312,11 @@ def share_link(update: Update, context: CallbackContext)-> int:
         url = helpers.create_deep_linked_url(bot.username, str(payloads[i]))
         if(context.user_data['payment']['equal']['bool']==True):
             amount = int(context.user_data['payment']['Amount'])
-            add_payment(context.user_data['user_id'],amount/numOfPersons,event_id,str(payloads[i]))
+            add_payment(context.user_data['user_id'],amount/numOfPersons,event_id,str(payloads[i]),user_data['Title'])
             text+=(f"Share the payment information to your friend {i+1}: [▶️ CLICK HERE]({url}). \n")
         else:
             amount = context.user_data['payment']['Amount'][i+1]['amount']
-            add_payment(context.user_data['user_id'],amount,event_id,str(payloads[i]))
+            add_payment(context.user_data['user_id'],amount,event_id,str(payloads[i]),user_data['Title'])
             text+=(f"Share the payment information to *{context.user_data['payment']['Amount'][i+1]['name']}* : [▶️ CLICK HERE]({url}). \n")
         i+=1
 
@@ -543,11 +543,19 @@ def display_payment(update: Update, _: CallbackContext) -> int:
 def send_notification(update: Update, _: CallbackContext) -> int:
     bot = _.bot
     query = update.callback_query
-    data=fetch_payment_by_id(query.data)
-    # user=fetch_profile(data['id'])
-    # TODO: send notification to everyone
-    # bot.send_message(chat_id=data['request_from'], text=f"Hey, bro, you owe {user['name']}   ${data['amount']} \n Please start the bot or visit our website for details. ")
-    bot.send_message(chat_id=1078844444, text=f"Hey, bro, you owe Zikang   $999999 \n Please start the bot or visit our website for details. ")
+    all_payment=fetch_payments_of_event(query.data)
+    for x in range(0, len(all_payment)):
+        request_from=all_payment[x]['request_from']
+        payer_name=all_payment[x]['payer_name']
+        amount=all_payment[x]['amount']
+        print("_______")
+        print(request_from)
+        print(payer_name+" "+str(amount))
+        try:
+            bot.send_message(chat_id=request_from, text=f"Hey, bro, you owe {payer_name}   ${amount} \n Please start the bot or visit our website for details. ")
+        except BaseException:
+            print("Chat not found. ID:"+ str(request_from))
+
     query.message.reply_text("notification sent")
     return HANDLE_HISTORY
 

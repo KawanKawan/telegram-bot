@@ -38,23 +38,29 @@ def update_profile(userid,category,text):
         category:text,
     })
 
-def add_payment(userid,amount,eventid,payload):
+def add_payment(userid,amount,eventid,payload,title):
     payment_ref = db.collection(u'payment').document(payload)
+    payer=fetch_profile(userid)
     payment_ref.set({
         u'id':userid,
         #u'request_from': request_from,
         u'amount': amount,
         u'eventid': eventid,
         u'completed':False,
-        u'payload':payload
+        u'payload':payload,
+        u'event_name': title,
+        u'payer_name':payer['name'],
+        u'date': datetime.datetime.now(),
     })
 
 
 # after the payee click the link, the request_from will be update to this payment
 def complete_payment(payload,request_from):
     payment_ref = db.collection(u'payment').document(payload)
+    payee=fetch_profile(request_from)
     payment_ref.update({
         u'request_from': request_from,
+        u'payee_name':payee['name'],
     })
 
 def finish_payment(payload):
